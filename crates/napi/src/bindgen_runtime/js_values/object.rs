@@ -1,10 +1,10 @@
 use crate::{bindgen_prelude::*, check_status, sys, type_of, JsObject, ValueType};
-use std::{ffi::CString, ptr};
+use std::ptr;
 
 pub type Object = JsObject;
 
 impl Object {
-  #[cfg(feature = "serde-json")]
+  #[allow(unused)]
   pub(crate) fn new(env: sys::napi_env) -> Result<Self> {
     let mut ptr = ptr::null_mut();
     unsafe {
@@ -21,42 +21,68 @@ impl Object {
     }))
   }
 
-  pub fn get<K: AsRef<str>, V: FromNapiValue>(&self, field: K) -> Result<Option<V>> {
-    let c_field = CString::new(field.as_ref())?;
-
+  pub fn get<V: FromNapiValue>(&self, field: &str) -> Result<Option<V>> {
     unsafe {
+      self
+        .get_inner(field)?
+        .map(|v| V::from_napi_value(self.0.env, v))
+        .transpose()
+    }
+  }
+
+  fn get_inner(&self, field: &str) -> Result<Option<sys::napi_value>> {
+    unsafe {
+      let mut property_key = std::ptr::null_mut();
+      check_status!(
+        sys::napi_create_string_utf8(
+          self.0.env,
+          field.as_ptr().cast(),
+          field.len() as isize,
+          &mut property_key,
+        ),
+        "Feild to create property key with `{field}`"
+      )?;
+
       let mut ret = ptr::null_mut();
 
       check_status!(
-        sys::napi_get_named_property(self.0.env, self.0.value, c_field.as_ptr(), &mut ret),
-        "Failed to get property with field `{}`",
-        field.as_ref(),
+        sys::napi_get_property(self.0.env, self.0.value, property_key, &mut ret),
+        "Failed to get property with field `{field}`",
       )?;
 
       let ty = type_of!(self.0.env, ret)?;
 
-      Ok(if ty == ValueType::Undefined || ty == ValueType::Null {
+      Ok(if ty == ValueType::Undefined {
         None
       } else {
-        Some(V::from_napi_value(self.0.env, ret)?)
+        Some(ret)
       })
     }
   }
 
   pub fn set<K: AsRef<str>, V: ToNapiValue>(&mut self, field: K, val: V) -> Result<()> {
-    let c_field = CString::new(field.as_ref())?;
+    unsafe { self.set_inner(field.as_ref(), V::to_napi_value(self.0.env, val)?) }
+  }
 
-    unsafe {
-      let napi_val = V::to_napi_value(self.0.env, val)?;
+  unsafe fn set_inner(&mut self, field: &str, napi_val: sys::napi_value) -> Result<()> {
+    let mut property_key = std::ptr::null_mut();
+    check_status!(
+      unsafe {
+        sys::napi_create_string_utf8(
+          self.0.env,
+          field.as_ptr().cast(),
+          field.len() as isize,
+          &mut property_key,
+        )
+      },
+      "Feild to create property key with `{field}`"
+    )?;
 
-      check_status!(
-        sys::napi_set_named_property(self.0.env, self.0.value, c_field.as_ptr(), napi_val),
-        "Failed to set property with field `{}`",
-        c_field.to_string_lossy(),
-      )?;
-
-      Ok(())
-    }
+    check_status!(
+      unsafe { sys::napi_set_property(self.0.env, self.0.value, property_key, napi_val) },
+      "Failed to set property with field `{field}`"
+    )?;
+    Ok(())
   }
 
   pub fn keys(obj: &Object) -> Result<Vec<String>> {

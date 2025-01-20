@@ -3,6 +3,239 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [3.0.0-alpha.68](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.67...@napi-rs/cli@3.0.0-alpha.68) (2025-01-20)
+
+**Note:** Version bump only for package @napi-rs/cli
+
+# [3.0.0-alpha.67](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.66...@napi-rs/cli@3.0.0-alpha.67) (2025-01-19)
+
+### Bug Fixes
+
+- **cli:** s390x cross toolchain path ([#2432](https://github.com/napi-rs/napi-rs/issues/2432)) ([978a000](https://github.com/napi-rs/napi-rs/commit/978a00069b5a1449d72ca74f91c6575fb58a27df))
+
+# [3.0.0-alpha.66](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.65...@napi-rs/cli@3.0.0-alpha.66) (2025-01-19)
+
+### Features
+
+- **cli:** update cross-toolchain to support s390x ([0ad7e10](https://github.com/napi-rs/napi-rs/commit/0ad7e100226d56df4d7d6ca6a6b194934c651698))
+- **napi:** impl ReadableStream and AsyncGenerator ([#2418](https://github.com/napi-rs/napi-rs/issues/2418)) ([98cb767](https://github.com/napi-rs/napi-rs/commit/98cb7671d35bd62d346766399a1da98f0cccd7a6))
+
+# [3.0.0-alpha.65](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.64...@napi-rs/cli@3.0.0-alpha.65) (2024-12-18)
+
+### Bug Fixes
+
+- **cli:** wrong condintion in setFeatures ([#2396](https://github.com/napi-rs/napi-rs/issues/2396)) ([40ce1ff](https://github.com/napi-rs/napi-rs/commit/40ce1ffb7e45d8ef186b8b876e444c61680d602e))
+- **napi:** resuse threads worker on Node.js ([#2399](https://github.com/napi-rs/napi-rs/issues/2399)) ([8fffa49](https://github.com/napi-rs/napi-rs/commit/8fffa492822f26ae2139f2a8b8031bfbbd72e1f1))
+
+### Features
+
+- **cli:** add --no-dts-cache option to build command ([#2400](https://github.com/napi-rs/napi-rs/issues/2400)) ([a72c49b](https://github.com/napi-rs/napi-rs/commit/a72c49b92e6b7a2c33a0f0c79d9ec071997daae6))
+
+# [3.0.0-alpha.64](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.63...@napi-rs/cli@3.0.0-alpha.64) (2024-10-21)
+
+### Features
+
+- **cli):** `createRequire` for SEA support ([#2297](https://github.com/napi-rs/napi-rs/issues/2297)) ([7ef54f4](https://github.com/napi-rs/napi-rs/commit/7ef54f413be519b1bfb3d4a788203b63c34613c7))
+- support ESM binding ([#2284](https://github.com/napi-rs/napi-rs/issues/2284)) ([960d07e](https://github.com/napi-rs/napi-rs/commit/960d07e5da6ad3c050aca7ba0fd0a2f2c057f72f))
+
+# [3.0.0-alpha.63](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.62...@napi-rs/cli@3.0.0-alpha.63) (2024-10-02)
+
+### Bug Fixes
+
+- **ci:** bump FreeBSD version to 13.3 ([#2220](https://github.com/napi-rs/napi-rs/issues/2220)) ([b5a5b03](https://github.com/napi-rs/napi-rs/commit/b5a5b032f69c77d85eb52312b9439bff9a8b41d8))
+- **cli:** extra line break in the tail of dts file ([#2255](https://github.com/napi-rs/napi-rs/issues/2255)) ([20b9de3](https://github.com/napi-rs/napi-rs/commit/20b9de3ec7a6aaa1f807f9831247ee8b573c0e4e))
+- **deps:** update dependency @inquirer/prompts to v6 ([#2257](https://github.com/napi-rs/napi-rs/issues/2257)) ([e11ceac](https://github.com/napi-rs/napi-rs/commit/e11ceacd5984ac1150132613edbfef506557e88c))
+
+### Features
+
+- support structured enum with discriminated unions ([#2222](https://github.com/napi-rs/napi-rs/issues/2222)) ([c459f0a](https://github.com/napi-rs/napi-rs/commit/c459f0acf6e18ddd9edfe3bf2771ab76bff0c25f))
+
+# [3.0.0-alpha.62](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.61...@napi-rs/cli@3.0.0-alpha.62) (2024-07-21)
+
+### Bug Fixes
+
+- **cli:** should not log errors if everything fine ([3284f88](https://github.com/napi-rs/napi-rs/commit/3284f881a625b902bb222136d8081c71ab15cc86))
+
+# [3.0.0-alpha.61](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.60...@napi-rs/cli@3.0.0-alpha.61) (2024-07-18)
+
+**Note:** Version bump only for package @napi-rs/cli
+
+# [3.0.0-alpha.60](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.59...@napi-rs/cli@3.0.0-alpha.60) (2024-07-16)
+
+### Bug Fixes
+
+- **cli:** bundle @octokit/rest into cjs entry ([#2190](https://github.com/napi-rs/napi-rs/issues/2190)) ([6078bb7](https://github.com/napi-rs/napi-rs/commit/6078bb7ccec935a685b78094a8faddc8a8590fe3))
+
+# [3.0.0-alpha.59](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.58...@napi-rs/cli@3.0.0-alpha.59) (2024-07-15)
+
+### Bug Fixes
+
+- **cli:** bundle lodash-es in cjs output ([#2189](https://github.com/napi-rs/napi-rs/issues/2189)) ([e860822](https://github.com/napi-rs/napi-rs/commit/e8608228b89f74793f4ea264fbbef00025449cad))
+- **cli:** worker files format ([#2186](https://github.com/napi-rs/napi-rs/issues/2186)) ([13c1838](https://github.com/napi-rs/napi-rs/commit/13c18388f5c57c1fa86a3a43ea9540af27d862c9))
+
+# [3.0.0-alpha.58](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.57...@napi-rs/cli@3.0.0-alpha.58) (2024-07-11)
+
+### Bug Fixes
+
+- **cli:** wasm binding files destination ([#2182](https://github.com/napi-rs/napi-rs/issues/2182)) ([5976f04](https://github.com/napi-rs/napi-rs/commit/5976f04e542da214013ea61c13340ad0eb4861d1))
+- **deps:** update dependency inquirer to v10 ([#2173](https://github.com/napi-rs/napi-rs/issues/2173)) ([9800ea7](https://github.com/napi-rs/napi-rs/commit/9800ea7350dc5db4332c5383417700cc3509b644))
+
+# [3.0.0-alpha.57](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.56...@napi-rs/cli@3.0.0-alpha.57) (2024-07-09)
+
+### Bug Fixes
+
+- **cli:** update wasi js binding files on any builds ([#2179](https://github.com/napi-rs/napi-rs/issues/2179)) ([731dced](https://github.com/napi-rs/napi-rs/commit/731dced1bb432667381a7a386a03025fc9154e10))
+
+# [3.0.0-alpha.56](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.55...@napi-rs/cli@3.0.0-alpha.56) (2024-07-05)
+
+### Bug Fixes
+
+- **cli:** rename env CC to TARGET_CC avoid proc-macro build failed ([#2137](https://github.com/napi-rs/napi-rs/issues/2137)) ([0749ef1](https://github.com/napi-rs/napi-rs/commit/0749ef183247f6d491c03952cc2ea128a03c5dae))
+- **deps:** update dependency @octokit/rest to v21 ([#2149](https://github.com/napi-rs/napi-rs/issues/2149)) ([c59e075](https://github.com/napi-rs/napi-rs/commit/c59e075f589f0123a0101fcf67351d7a303c7f07))
+- **deps:** update dependency emnapi to v1.2.0 ([#2118](https://github.com/napi-rs/napi-rs/issues/2118)) ([4b3a84b](https://github.com/napi-rs/napi-rs/commit/4b3a84bcd0e98fc85f9d6b1f0ecfe9fef1c7b970))
+- **typegen:** add missing `declare` keyword ([#2117](https://github.com/napi-rs/napi-rs/issues/2117)) ([734d74b](https://github.com/napi-rs/napi-rs/commit/734d74bd028e3328ada43316dc68f208477d6997))
+
+# [3.0.0-alpha.55](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.54...@napi-rs/cli@3.0.0-alpha.55) (2024-05-12)
+
+### Bug Fixes
+
+- **cli:** prevent the wasm optimization crash the build ([#2107](https://github.com/napi-rs/napi-rs/issues/2107)) ([c9c3c0e](https://github.com/napi-rs/napi-rs/commit/c9c3c0ed05afa6625969c6f4ffaa5955b053c956))
+- **deps:** update dependency @napi-rs/cross-toolchain to ^0.0.16 ([#2079](https://github.com/napi-rs/napi-rs/issues/2079)) ([d022f64](https://github.com/napi-rs/napi-rs/commit/d022f6483488697022b0126150afc3685d70417f))
+- **napi:** set explicit target flag for x86_64 CI template ([#2077](https://github.com/napi-rs/napi-rs/issues/2077)) ([ebc1e2c](https://github.com/napi-rs/napi-rs/commit/ebc1e2ca183de090bd02a1be1fd3cbb42f16cd86))
+
+# [3.0.0-alpha.54](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.53...@napi-rs/cli@3.0.0-alpha.54) (2024-04-23)
+
+### Bug Fixes
+
+- **cli:** non-fs polyfilled browser worker binding ([#2067](https://github.com/napi-rs/napi-rs/issues/2067)) ([3e44ae3](https://github.com/napi-rs/napi-rs/commit/3e44ae3c160f28f4c1087c80da712c7a86608693))
+
+# [3.0.0-alpha.52](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.51...@napi-rs/cli@3.0.0-alpha.52) (2024-04-22)
+
+### Bug Fixes
+
+- **cli:** pass fs to browser worker binding ([#2062](https://github.com/napi-rs/napi-rs/issues/2062)) ([12aec3c](https://github.com/napi-rs/napi-rs/commit/12aec3c1354d3b2c722787de38325477c750e988))
+
+### Features
+
+- **cli:** support generation of literal union from string enum ([#2054](https://github.com/napi-rs/napi-rs/issues/2054)) ([0adc36c](https://github.com/napi-rs/napi-rs/commit/0adc36ce1c0aaeff645e6d17d6c7d54c64a5b321))
+
+# [3.0.0-alpha.51](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.50...@napi-rs/cli@3.0.0-alpha.51) (2024-04-19)
+
+### Bug Fixes
+
+- **cli:** new project issue ([#2058](https://github.com/napi-rs/napi-rs/issues/2058)) ([10602fb](https://github.com/napi-rs/napi-rs/commit/10602fb76fb3c1b075fdb6524c141a4c85374c08))
+
+### Features
+
+- **cli:** improve the browser binding ([#2056](https://github.com/napi-rs/napi-rs/issues/2056)) ([4ccbb61](https://github.com/napi-rs/napi-rs/commit/4ccbb6117943d5aa06f985eced1555ecf4c6fb05))
+
+# [3.0.0-alpha.50](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.49...@napi-rs/cli@3.0.0-alpha.50) (2024-04-17)
+
+### Features
+
+- **cli:** optimize wasm output binary ([#2049](https://github.com/napi-rs/napi-rs/issues/2049)) ([7e33eb7](https://github.com/napi-rs/napi-rs/commit/7e33eb729fdb6347c27ed1e1d99d4ac10ec3ee77))
+
+# [3.0.0-alpha.49](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.48...@napi-rs/cli@3.0.0-alpha.49) (2024-04-16)
+
+### Bug Fixes
+
+- **cli:** wasi targets linker envs ([#2044](https://github.com/napi-rs/napi-rs/issues/2044)) ([a2d78fa](https://github.com/napi-rs/napi-rs/commit/a2d78fadf9cdafe42ef5cae2efbd48077fa31000))
+
+### Features
+
+- **cli:** allow to define dtsHeader in napi config ([#2045](https://github.com/napi-rs/napi-rs/issues/2045)) ([b3dd946](https://github.com/napi-rs/napi-rs/commit/b3dd94649af82f872648056ce447ee02d4cdddb4))
+
+# [3.0.0-alpha.48](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.47...@napi-rs/cli@3.0.0-alpha.48) (2024-04-15)
+
+### Features
+
+- **cli:** allow control the wasm Memory options via napi config ([#2038](https://github.com/napi-rs/napi-rs/issues/2038)) ([cc937e1](https://github.com/napi-rs/napi-rs/commit/cc937e1dbabcbc05bcb026126f82fe842554891d))
+
+# [3.0.0-alpha.47](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.45...@napi-rs/cli@3.0.0-alpha.47) (2024-04-13)
+
+### Bug Fixes
+
+- **deps:** update dependency emnapi to v1.1.1 ([#2017](https://github.com/napi-rs/napi-rs/issues/2017)) ([e4ad476](https://github.com/napi-rs/napi-rs/commit/e4ad4767efaf093fdff3dc768856f6100a6e3f72))
+
+### Features
+
+- **cli:** add support for armv7-unknown-linux-muslebihf ([#2019](https://github.com/napi-rs/napi-rs/issues/2019)) ([7ae5623](https://github.com/napi-rs/napi-rs/commit/7ae562352a7811aa6440561c7b3a97c05671dc0d))
+- **cli:** support wasm32-wasipxx targets ([#2030](https://github.com/napi-rs/napi-rs/issues/2030)) ([4c7d06f](https://github.com/napi-rs/napi-rs/commit/4c7d06fc72be2ce1af1489884ed810116e09117b))
+- **target:** add support for powerpc64le-unknown-linux-gnu ([#2023](https://github.com/napi-rs/napi-rs/issues/2023)) ([0fa755d](https://github.com/napi-rs/napi-rs/commit/0fa755d30ac5d7abb16dfa59b58d61deaaa7984c))
+- **target:** add support for s390x-unknown-linux-gnu ([#2028](https://github.com/napi-rs/napi-rs/issues/2028)) ([2e0f983](https://github.com/napi-rs/napi-rs/commit/2e0f983ccfbed6f8879ee7d5dbb8446068ee82ab))
+
+# [3.0.0-alpha.46](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.45...@napi-rs/cli@3.0.0-alpha.46) (2024-04-10)
+
+### Bug Fixes
+
+- **deps:** update dependency emnapi to v1.1.1 ([#2017](https://github.com/napi-rs/napi-rs/issues/2017)) ([e4ad476](https://github.com/napi-rs/napi-rs/commit/e4ad4767efaf093fdff3dc768856f6100a6e3f72))
+
+### Features
+
+- **cli:** add support for armv7-unknown-linux-muslebihf ([#2019](https://github.com/napi-rs/napi-rs/issues/2019)) ([7ae5623](https://github.com/napi-rs/napi-rs/commit/7ae562352a7811aa6440561c7b3a97c05671dc0d))
+- **cli:** support wasm32-wasipxx targets ([#2030](https://github.com/napi-rs/napi-rs/issues/2030)) ([4c7d06f](https://github.com/napi-rs/napi-rs/commit/4c7d06fc72be2ce1af1489884ed810116e09117b))
+- **target:** add support for powerpc64le-unknown-linux-gnu ([#2023](https://github.com/napi-rs/napi-rs/issues/2023)) ([0fa755d](https://github.com/napi-rs/napi-rs/commit/0fa755d30ac5d7abb16dfa59b58d61deaaa7984c))
+- **target:** add support for s390x-unknown-linux-gnu ([#2028](https://github.com/napi-rs/napi-rs/issues/2028)) ([2e0f983](https://github.com/napi-rs/napi-rs/commit/2e0f983ccfbed6f8879ee7d5dbb8446068ee82ab))
+
+# [3.0.0-alpha.45](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.44...@napi-rs/cli@3.0.0-alpha.45) (2024-03-28)
+
+### Bug Fixes
+
+- **cli:** wasi Node.js worker template ([#2015](https://github.com/napi-rs/napi-rs/issues/2015)) ([77399ff](https://github.com/napi-rs/napi-rs/commit/77399ff13057c9f776c18cdcc671164084a96fa5))
+
+# [3.0.0-alpha.44](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.43...@napi-rs/cli@3.0.0-alpha.44) (2024-03-21)
+
+### Bug Fixes
+
+- **deps:** update dependency emnapi to v1.1.0 ([#2006](https://github.com/napi-rs/napi-rs/issues/2006)) ([e2b1a3e](https://github.com/napi-rs/napi-rs/commit/e2b1a3e3d9328027e7b1e140230b99837f7761fe))
+
+# [3.0.0-alpha.43](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.42...@napi-rs/cli@3.0.0-alpha.43) (2024-02-28)
+
+### Bug Fixes
+
+- **cli:** cleanup js binding template ([#1984](https://github.com/napi-rs/napi-rs/issues/1984)) ([19a1336](https://github.com/napi-rs/napi-rs/commit/19a13361d407bb8c1daf68a4589ab0fe0d3cdcd4))
+
+# [3.0.0-alpha.42](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.41...@napi-rs/cli@3.0.0-alpha.42) (2024-02-28)
+
+**Note:** Version bump only for package @napi-rs/cli
+
+# [3.0.0-alpha.41](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.40...@napi-rs/cli@3.0.0-alpha.41) (2024-02-22)
+
+### Bug Fixes
+
+- **cli:** allow more platform & arch fallback to wasm ([#1969](https://github.com/napi-rs/napi-rs/issues/1969)) ([da99081](https://github.com/napi-rs/napi-rs/commit/da99081ccf8dda6d0788dd4a466cf6b1eb7ba10b))
+- **cli:** fallback to wasm32 if platform is not support ([#1967](https://github.com/napi-rs/napi-rs/issues/1967)) ([0306e30](https://github.com/napi-rs/napi-rs/commit/0306e3045a0891f280cb7154fd9637ed2eb78f0d))
+
+# [3.0.0-alpha.40](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.39...@napi-rs/cli@3.0.0-alpha.40) (2024-02-19)
+
+### Bug Fixes
+
+- **cli,build:** build params ([#1960](https://github.com/napi-rs/napi-rs/issues/1960)) ([ad35076](https://github.com/napi-rs/napi-rs/commit/ad35076d072ddf7e98a1e8e5cc18c87d72f4e5f4))
+
+# [3.0.0-alpha.39](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.38...@napi-rs/cli@3.0.0-alpha.39) (2024-02-18)
+
+### Bug Fixes
+
+- **cli:** ensure cwd and outputDir are used for finding files ([#1949](https://github.com/napi-rs/napi-rs/issues/1949)) ([6aae4ba](https://github.com/napi-rs/napi-rs/commit/6aae4bac0fc16decf904115b5308f7981c43fca7))
+- **cli:** set cxxflags while WASI_SDK_PATH exists ([#1955](https://github.com/napi-rs/napi-rs/issues/1955)) ([09efd41](https://github.com/napi-rs/napi-rs/commit/09efd416e5712575d4d99c6865fd4c2dde8df943))
+
+### Features
+
+- **cli,build:** support setjmp.h ([#1958](https://github.com/napi-rs/napi-rs/issues/1958)) ([08b1f68](https://github.com/napi-rs/napi-rs/commit/08b1f689bf99414e5c7f10728b8e202ae124abca))
+
+# [3.0.0-alpha.38](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.37...@napi-rs/cli@3.0.0-alpha.38) (2024-02-12)
+
+### Features
+
+- **cli:** respect WASI_SDK_PATH env ([#1946](https://github.com/napi-rs/napi-rs/issues/1946)) ([bec6bd6](https://github.com/napi-rs/napi-rs/commit/bec6bd67befa56992645036d4a8c1da111af2641))
+
+# [3.0.0-alpha.37](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.36...@napi-rs/cli@3.0.0-alpha.37) (2024-02-12)
+
+### Bug Fixes
+
+- **cli:** log more wasi load errors ([ff2ccc9](https://github.com/napi-rs/napi-rs/commit/ff2ccc9f37aa8f73a34ebbc303bc60b7f49a3156))
+- **cli:** setup cxx env while using napi-cross ([#1942](https://github.com/napi-rs/napi-rs/issues/1942)) ([0205fd9](https://github.com/napi-rs/napi-rs/commit/0205fd976ea7616fab35db3403f65da048b90a41))
+
 # [3.0.0-alpha.36](https://github.com/napi-rs/napi-rs/compare/@napi-rs/cli@3.0.0-alpha.35...@napi-rs/cli@3.0.0-alpha.36) (2024-01-16)
 
 ### Bug Fixes

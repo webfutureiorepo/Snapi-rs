@@ -1,16 +1,15 @@
+import { Buffer } from 'node:buffer'
 import { exec } from 'node:child_process'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createReadStream } from 'node:fs'
+import { readFile as nodeReadFile } from 'node:fs/promises'
+import { Readable } from 'node:stream'
 
-import { spy } from 'sinon'
+import { Subject, take } from 'rxjs'
+import Sinon, { spy } from 'sinon'
 
-import type { AliasedStruct, Animal as AnimalClass } from '../index.js'
-
-import { test } from './test.framework.js'
-
-const __dirname = join(fileURLToPath(import.meta.url), '..')
-
-const {
+import {
   DEFAULT_COST,
   add,
   fibonacci,
@@ -32,8 +31,18 @@ const {
   getNums,
   getWords,
   sumNums,
+  getTuple,
   getMapping,
   sumMapping,
+  getBtreeMapping,
+  sumBtreeMapping,
+  getIndexMapping,
+  sumIndexMapping,
+  indexmapPassthrough,
+  passSetToJs,
+  passSetToRust,
+  btreeSetToJs,
+  btreeSetToRust,
   getCwd,
   Animal,
   Kind,
@@ -48,12 +57,14 @@ const {
   mapOption,
   readFile,
   throwError,
+  jsErrorCallback,
   customStatusCode,
   panic,
   readPackageJson,
   getPackageJsonName,
   getBuffer,
   getEmptyBuffer,
+  getEmptyTypedArray,
   asyncBufferToArray,
   readFileAsync,
   eitherStringOrNumber,
@@ -89,10 +100,25 @@ const {
   xxh3,
   xxh64Alias,
   tsRename,
+  acceptArraybuffer,
+  acceptSlice,
+  u8ArrayToArray,
+  i8ArrayToArray,
+  u16ArrayToArray,
+  i16ArrayToArray,
+  u32ArrayToArray,
+  i32ArrayToArray,
+  u64ArrayToArray,
+  i64ArrayToArray,
+  f32ArrayToArray,
+  f64ArrayToArray,
+  acceptUint8ClampedSlice,
+  acceptUint8ClampedSliceAndBufferSlice,
   convertU32Array,
   createExternalTypedArray,
   mutateTypedArray,
   receiveAllOptionalObject,
+  objectGetNamedPropertyShouldPerformTypecheck,
   fnReceivedAliased,
   ALIAS,
   appendBuffer,
@@ -106,18 +132,23 @@ const {
   JsClassForEither,
   receiveMutClassOrNumber,
   getStrFromObject,
-  returnJsFunction,
   testSerdeRoundtrip,
   testSerdeBigNumberPrecision,
+  testSerdeBufferBytes,
   createObjWithProperty,
   receiveObjectOnlyFromJs,
   dateToNumber,
-  chronoDateToMillis,
+  chronoUtcDateToMillis,
+  chronoLocalDateToMillis,
+  chronoDateWithTimezoneToMillis,
+  chronoDateFixtureReturn1,
+  chronoDateFixtureReturn2,
   derefUint8Array,
   chronoDateAdd1Minute,
   bufferPassThrough,
   arrayBufferPassThrough,
   JsRepo,
+  JsRemote,
   CssStyleSheet,
   CatchOnConstructor,
   CatchOnConstructor2,
@@ -154,7 +185,49 @@ const {
   throwAsyncError,
   getModuleFileName,
   throwSyntaxError,
-} = (await import('../index.js')).default
+  type AliasedStruct,
+  returnObjectOnlyToJs,
+  buildThreadsafeFunctionFromFunction,
+  createOptionalExternal,
+  getOptionalExternal,
+  mutateOptionalExternal,
+  panicInAsync,
+  CustomStruct,
+  ClassWithLifetime,
+  uInit8ArrayFromString,
+  callThenOnPromise,
+  callCatchOnPromise,
+  callFinallyOnPromise,
+  StructuredKind,
+  validateStructuredEnum,
+  createArraybuffer,
+  getBufferSlice,
+  createExternalBufferSlice,
+  createBufferSliceFromCopiedData,
+  Reader,
+  withinAsyncRuntimeIfAvailable,
+  errorMessageContainsNullByte,
+  returnCString,
+  receiveBufferSliceWithLifetime,
+  generateFunctionAndCallIt,
+  getMyVec,
+  setNullByteProperty,
+  getNullByteProperty,
+  getMappingWithHasher,
+  getIndexMappingWithHasher,
+  passSetWithHasherToJs,
+  Rule,
+  callRuleHandler,
+  acceptStream,
+  createReadableStream,
+  createReadableStreamFromClass,
+  spawnThreadInThread,
+  esmResolve,
+} from '../index.cjs'
+
+import { test } from './test.framework.js'
+
+const __dirname = join(fileURLToPath(import.meta.url), '..')
 
 const Napi4Test = Number(process.versions.napi) >= 4 ? test : test.skip
 
@@ -188,11 +261,13 @@ test('string', (t) => {
     roundtripStr('what up?!\u0000after the NULL'),
     'what up?!\u0000after the NULL',
   )
+  t.is(returnCString(), 'Hello from C string!')
 })
 
 test('array', (t) => {
   t.deepEqual(getNums(), [1, 1, 2, 3, 5, 8])
   t.deepEqual(getWords(), ['foo', 'bar'])
+  t.deepEqual(getTuple([1, 'test', 2]), 3)
 
   t.is(sumNums([1, 2, 3, 4, 5]), 15)
   t.deepEqual(getNumArr(), [1, 2])
@@ -200,8 +275,29 @@ test('array', (t) => {
 })
 
 test('map', (t) => {
-  t.deepEqual(getMapping(), { a: 101, b: 102 })
-  t.is(sumMapping({ a: 101, b: 102 }), 203)
+  t.deepEqual(getMapping(), { a: 101, b: 102, '\0c': 103 })
+  t.deepEqual(getMappingWithHasher(), { a: 101, b: 102 })
+  t.is(sumMapping({ a: 101, b: 102, '\0c': 103 }), 306)
+  t.deepEqual(getBtreeMapping(), { a: 101, b: 102, '\0c': 103 })
+  t.is(sumBtreeMapping({ a: 101, b: 102, '\0c': 103 }), 306)
+  t.deepEqual(getIndexMapping(), { a: 101, b: 102, '\0c': 103 })
+  t.deepEqual(getIndexMappingWithHasher(), { a: 101, b: 102 })
+  t.is(sumIndexMapping({ a: 101, b: 102, '\0c': 103 }), 306)
+  t.deepEqual(indexmapPassthrough({ a: 101, b: 102, '\0c': 103 }), {
+    a: 101,
+    b: 102,
+    '\0c': 103,
+  })
+})
+
+test('set', (t) => {
+  t.notThrows(() => {
+    passSetToRust(new Set(['a', 'b', 'c']))
+    btreeSetToRust(new Set(['a', 'b', 'c']))
+  })
+  t.deepEqual(Array.from(passSetToJs()).sort(), ['a', 'b', 'c'])
+  t.deepEqual(Array.from(passSetWithHasherToJs()).sort(), ['a', 'b', 'c'])
+  t.deepEqual(Array.from(btreeSetToJs()).sort(), ['a', 'b', 'c'])
 })
 
 test('enum', (t) => {
@@ -209,9 +305,39 @@ test('enum', (t) => {
   t.is(enumToI32(CustomNumEnum.Eight), 8)
 })
 
+test('structured enum', (t) => {
+  const hello: StructuredKind = {
+    type2: 'Hello',
+  }
+  const greeting: StructuredKind = {
+    type2: 'Greeting',
+    name: 'Napi-rs',
+  }
+  const birthday: StructuredKind = {
+    type2: 'Birthday',
+    name: 'Napi-rs',
+    age: 10,
+  }
+  const tuple: StructuredKind = {
+    type2: 'Tuple',
+    field0: 1,
+    field1: 2,
+  }
+  t.deepEqual(hello, validateStructuredEnum(hello))
+  t.deepEqual(greeting, validateStructuredEnum(greeting))
+  t.deepEqual(birthday, validateStructuredEnum(birthday))
+  t.deepEqual(tuple, validateStructuredEnum(tuple))
+  t.throws(() => validateStructuredEnum({ type2: 'unknown' } as any))
+  t.throws(() => validateStructuredEnum({ type2: 'Greeting' } as any))
+})
+
 test('function call', async (t) => {
   t.is(
-    call0(() => 42),
+    call0((...args) => {
+      console.error(args)
+      t.is(args.length, 0)
+      return 42
+    }),
     42,
   )
   t.is(
@@ -223,14 +349,14 @@ test('function call', async (t) => {
     52,
   )
   const ctx = new Animal(Kind.Dog, '旺财')
-  apply0(ctx, function (this: AnimalClass) {
+  apply0(ctx, function (this: Animal) {
     this.name = '可乐'
   })
   t.is(ctx.name, '可乐')
   const ctx2 = new Animal(Kind.Dog, '旺财')
   apply1(
     ctx2,
-    function (this: AnimalClass, name: string) {
+    function (this: Animal, name: string) {
       this.name = name
     },
     '可乐',
@@ -247,7 +373,7 @@ test('function call', async (t) => {
   const ctx3 = new Animal(Kind.Dog, '旺财')
   callFunctionWithArgAndCtx(
     ctx3,
-    function (this: AnimalClass, name: string) {
+    function (this: Animal, name: string) {
       this.name = name
     },
     '可乐',
@@ -304,6 +430,10 @@ test('class', (t) => {
   t.notThrows(() => {
     new CatchOnConstructor()
   })
+
+  const classWithLifetime = new ClassWithLifetime()
+  t.deepEqual(classWithLifetime.getName(), 'alie')
+  t.deepEqual(Object.keys(classWithLifetime), ['inner'])
 
   if (!process.env.TEST_ZIG_CROSS) {
     t.throws(
@@ -388,6 +518,7 @@ test('custom finalize class', (t) => {
 test('should be able to create object reference and shared reference', (t) => {
   const repo = new JsRepo('.')
   t.is(repo.remote().name(), 'origin')
+  t.is(new JsRemote(repo).name(), 'origin')
 })
 
 test('should be able to into_reference', (t) => {
@@ -402,9 +533,11 @@ test('should be able to into_reference', (t) => {
 })
 
 test('callback', (t) => {
-  getCwd((cwd) => {
-    t.is(cwd, process.env.WASI_TEST ? '/' : process.cwd())
-  })
+  if (!process.env.WASI_TEST) {
+    getCwd((cwd) => {
+      t.is(cwd, process.cwd())
+    })
+  }
 
   t.throws(
     // @ts-expect-error
@@ -426,16 +559,6 @@ test('callback', (t) => {
       t.is((err as Error).message, 'Testing')
     },
   )
-})
-
-test('return function', (t) => {
-  return new Promise<void>((resolve) => {
-    returnJsFunction()((err: Error | undefined, content: string) => {
-      t.is(err, undefined)
-      t.is(content, 'hello world')
-      resolve()
-    })
-  })
 })
 
 Napi4Test('callback function return Promise', async (t) => {
@@ -460,9 +583,79 @@ Napi4Test('callback function return Promise and spawn', async (t) => {
   t.is(finalReturn, 'Hello world 😼')
 })
 
+test('promise', async (t) => {
+  const res = await callThenOnPromise(Promise.resolve(1))
+  t.is(res, '1')
+  const cat = await callCatchOnPromise(Promise.reject('cat'))
+  t.is(cat, 'cat')
+  const spy = Sinon.spy()
+  await callFinallyOnPromise(Promise.resolve(1), spy)
+  t.true(spy.calledOnce)
+})
+
 test('object', (t) => {
   t.deepEqual(listObjKeys({ name: 'John Doe', age: 20 }), ['name', 'age'])
   t.deepEqual(createObj(), { test: 1 })
+  t.throws(
+    () =>
+      objectGetNamedPropertyShouldPerformTypecheck({
+        // @ts-expect-error
+        foo: '2',
+        bar: '3',
+      }),
+    {
+      message: `Object property 'foo' type mismatch. Expect value to be Number, but received String`,
+      code: 'InvalidArg',
+    },
+  )
+  t.throws(
+    () =>
+      objectGetNamedPropertyShouldPerformTypecheck({
+        foo: 2,
+        // @ts-expect-error
+        bar: 3,
+      }),
+    {
+      message: `Object property 'bar' type mismatch. Expect value to be String, but received Number`,
+      code: 'InvalidArg',
+    },
+  )
+  t.notThrows(() =>
+    objectGetNamedPropertyShouldPerformTypecheck({
+      foo: 2,
+      bar: '3',
+    }),
+  )
+  t.deepEqual(returnObjectOnlyToJs(), {
+    name: 42,
+    dependencies: {
+      '@napi-rs/cli': '^3.0.0',
+      rollup: '^4.0.0',
+    },
+  })
+  t.throws(
+    () =>
+      receiveAllOptionalObject({
+        // @ts-expect-error
+        name: 1,
+      }),
+    {
+      code: 'StringExpected',
+      message:
+        'Failed to convert JavaScript value `Number 1 ` into rust type `String` on AllOptionalObject.name',
+    },
+  )
+
+  t.is(receiveBufferSliceWithLifetime({ data: 'foo' }), 3)
+  t.is(receiveBufferSliceWithLifetime({ data: Buffer.from('barz') }), 4)
+
+  const data = generateFunctionAndCallIt()
+  t.is(data.handle(), 1)
+
+  const objNull: any = {}
+  setNullByteProperty(objNull)
+  t.is(objNull['\0virtual'], 'test')
+  t.is(getNullByteProperty(objNull), 'test')
 })
 
 test('get str from object', (t) => {
@@ -476,7 +669,7 @@ test('create object from Property', (t) => {
 })
 
 test('global', (t) => {
-  t.is(getGlobal(), global)
+  t.is(getGlobal(), typeof global === 'undefined' ? globalThis : global)
 })
 
 test('get undefined', (t) => {
@@ -520,6 +713,11 @@ test('Result', (t) => {
   if (!process.env.SKIP_UNWIND_TEST) {
     t.throws(() => panic(), void 0, `Don't panic`)
   }
+  t.throws(() => errorMessageContainsNullByte('\u001a\u0000'))
+
+  const errors = jsErrorCallback(new Error('JS Error'))
+  t.deepEqual(errors[0]!.message, 'JS Error')
+  t.deepEqual(errors[1]!.message, 'JS Error')
 })
 
 test('Async error with stack trace', async (t) => {
@@ -533,6 +731,12 @@ test('Async error with stack trace', async (t) => {
 
 test('custom status code in Error', (t) => {
   t.throws(() => customStatusCode(), {
+    code: 'Panic',
+  })
+  t.throws(() => CustomStruct.customStatusCodeForFactory(), {
+    code: 'Panic',
+  })
+  t.throws(() => new CustomStruct(), {
     code: 'Panic',
   })
 })
@@ -566,7 +770,7 @@ test('should throw if object type is not matched', (t) => {
   const err1 = t.throws(() => receiveStrictObject({ name: 1 }))
   t.is(
     err1?.message,
-    'Failed to convert JavaScript value `Number 1 ` into rust type `String`',
+    'Failed to convert JavaScript value `Number 1 ` into rust type `String` on StrictObject.name',
   )
   // @ts-expect-error
   const err2 = t.throws(() => receiveStrictObject({ bar: 1 }))
@@ -640,19 +844,75 @@ test('serde-large-number-precision', (t) => {
   )
 })
 
+test('serde-buffer-bytes', (t) => {
+  t.is(testSerdeBufferBytes({ code: new Uint8Array([1, 2, 3]) }), 3n)
+  t.is(testSerdeBufferBytes({ code: new Uint8Array(0) }), 0n)
+
+  t.is(testSerdeBufferBytes({ code: Buffer.from([1, 2, 3]) }), 3n)
+  t.is(testSerdeBufferBytes({ code: Buffer.alloc(0) }), 0n)
+  t.is(testSerdeBufferBytes({ code: new ArrayBuffer(10) }), 10n)
+  t.is(testSerdeBufferBytes({ code: new ArrayBuffer(0) }), 0n)
+})
+
 test('buffer', (t) => {
   let buf = getBuffer()
   t.is(buf.toString('utf-8'), 'Hello world')
   buf = appendBuffer(buf)
   t.is(buf.toString('utf-8'), 'Hello world!')
+  t.is(getBufferSlice().toString('utf-8'), 'Hello world')
+  t.is(createExternalBufferSlice().toString('utf-8'), 'Hello world')
+  t.is(createBufferSliceFromCopiedData().toString('utf-8'), 'Hello world')
 
   const a = getEmptyBuffer()
   const b = getEmptyBuffer()
   t.is(a.toString(), '')
   t.is(b.toString(), '')
 
-  // @ts-expect-error
   t.true(Array.isArray(asyncBufferToArray(Buffer.from([1, 2, 3]).buffer)))
+})
+
+test('Return BufferSlice with lifetime', (t) => {
+  const reader = new Reader()
+  const reader2 = new Reader()
+  t.deepEqual(reader.read(), Buffer.from('Hello world'))
+  t.deepEqual(reader2.read(), Buffer.from('Hello world'))
+})
+
+test('Transparent', (t) => {
+  const v = getMyVec()
+  t.deepEqual(v, [42, 'a string'])
+})
+
+test('TypedArray', (t) => {
+  t.is(acceptSlice(new Uint8Array([1, 2, 3])), 3n)
+  t.deepEqual(u8ArrayToArray(new Uint8Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(i8ArrayToArray(new Int8Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(u16ArrayToArray(new Uint16Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(i16ArrayToArray(new Int16Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(u32ArrayToArray(new Uint32Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(i32ArrayToArray(new Int32Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(u64ArrayToArray(new BigUint64Array([1n, 2n, 3n])), [1n, 2n, 3n])
+  t.deepEqual(i64ArrayToArray(new BigInt64Array([1n, 2n, 3n])), [1, 2, 3])
+  t.deepEqual(f32ArrayToArray(new Float32Array([1, 2, 3])), [1, 2, 3])
+  t.deepEqual(f64ArrayToArray(new Float64Array([1, 2, 3])), [1, 2, 3])
+
+  const bird = new Bird('Carolyn')
+
+  t.is(bird.acceptSliceMethod(new Uint8Array([1, 2, 3])), 3)
+
+  t.is(acceptUint8ClampedSlice(new Uint8ClampedArray([1, 2, 3])), 3n)
+  t.is(
+    acceptUint8ClampedSliceAndBufferSlice(
+      Buffer.from([1, 2, 3]),
+      new Uint8ClampedArray([1, 2, 3]),
+    ),
+    6n,
+  )
+})
+
+test('emptybuffer', (t) => {
+  let buf = new ArrayBuffer(0)
+  t.is(acceptArraybuffer(buf), 0n)
 })
 
 test('reset empty buffer', (t) => {
@@ -662,6 +922,12 @@ test('reset empty buffer', (t) => {
   const buffer = Buffer.from(shared)
   t.notThrows(() => {
     buffer.set(empty)
+  })
+})
+
+test('empty typed array', (t) => {
+  t.notThrows(() => {
+    derefUint8Array(getEmptyTypedArray(), new Uint8ClampedArray([]))
   })
 })
 
@@ -705,6 +971,20 @@ test('async', async (t) => {
   await t.throwsAsync(() => readFileAsync('some_nonexist_path.file'))
 })
 
+test('within async runtime', (t) => {
+  t.notThrows(() => withinAsyncRuntimeIfAvailable())
+})
+
+test('panic in async fn', async (t) => {
+  if (!process.env.SKIP_UNWIND_TEST && !process.env.WASI_TEST) {
+    await t.throwsAsync(() => panicInAsync(), {
+      message: 'panic in async function',
+    })
+  } else {
+    t.pass('no unwind runtime')
+  }
+})
+
 test('async move', async (t) => {
   t.is(await asyncMultiTwo(2), 4)
 })
@@ -730,6 +1010,25 @@ test('async reduce buffer', async (t) => {
   )
 })
 
+test('create arraybuffer with native', (t) => {
+  const ret = createArraybuffer()
+  t.true(ret instanceof ArrayBuffer)
+  const buf = new ArrayBuffer(4)
+  const view = new Uint8Array(buf)
+  view[0] = 1
+  view[1] = 2
+  view[2] = 3
+  view[3] = 4
+  t.deepEqual(ret, buf)
+})
+
+test('Uint8Array from String', async (t) => {
+  t.is(
+    Buffer.from(await uInit8ArrayFromString()).toString('utf8'),
+    'Hello world',
+  )
+})
+
 test('either', (t) => {
   t.is(eitherStringOrNumber(2), 2)
   t.is(eitherStringOrNumber('hello'), 'hello'.length)
@@ -748,11 +1047,6 @@ test('receive class reference in either', (t) => {
 })
 
 test('receive different class', (t) => {
-  // TODO: fix the napi_unwrap error from the emnapi
-  if (process.env.WASI_TEST) {
-    t.pass()
-    return
-  }
   const a = new JsClassForEither()
   const b = new AnotherClassForEither()
   t.is(receiveDifferentClass(a), 42)
@@ -801,10 +1095,23 @@ test('external', (t) => {
   const ext2 = createExternalString('wtf')
   // @ts-expect-error
   const e = t.throws(() => getExternal(ext2))
-  t.is(
-    e?.message,
-    'T on `get_value_external` is not the type of wrapped object',
-  )
+  t.is(e?.message, '<u32> on `External` is not the type of wrapped object')
+})
+
+test('optional external', (t) => {
+  const FX = 42
+  const extEmpty = createOptionalExternal()
+  t.is(getOptionalExternal(extEmpty), null)
+  const ext = createOptionalExternal(FX)
+  t.is(getOptionalExternal(ext), FX)
+  mutateOptionalExternal(ext, FX + 1)
+  t.is(getOptionalExternal(ext), FX + 1)
+  // @ts-expect-error
+  t.throws(() => getOptionalExternal({}))
+  const ext2 = createExternalString('wtf')
+  // @ts-expect-error
+  const e = t.throws(() => getOptionalExternal(ext2))
+  t.is(e?.message, '<u32> on `External` is not the type of wrapped object')
 })
 
 test('should be able to run script', async (t) => {
@@ -878,7 +1185,11 @@ BigIntTest('from i128 i64', (t) => {
   t.is(bigintFromI128(), BigInt('-100'))
 })
 
-Napi4Test('call thread safe function', (t) => {
+Napi4Test('call ThreadsafeFunction', (t) => {
+  if (process.env.WASI_TEST) {
+    t.pass()
+    return
+  }
   let i = 0
   let value = 0
   return new Promise((resolve) => {
@@ -890,14 +1201,14 @@ Napi4Test('call thread safe function', (t) => {
         resolve()
         t.is(
           value,
-          Array.from({ length: 100 }, (_, i) => i + 1).reduce((a, b) => a + b),
+          Array.from({ length: 100 }, (_, i) => i).reduce((a, b) => a + b),
         )
       }
     })
   })
 })
 
-Napi4Test('throw error from thread safe function', async (t) => {
+Napi4Test('throw error from ThreadsafeFunction', async (t) => {
   const throwPromise = new Promise((_, reject) => {
     threadsafeFunctionThrowError(reject)
   })
@@ -905,7 +1216,7 @@ Napi4Test('throw error from thread safe function', async (t) => {
   t.is(err?.message, 'ThrowFromNative')
 })
 
-Napi4Test('thread safe function closure capture data', (t) => {
+Napi4Test('ThreadsafeFunction closure capture data', (t) => {
   return new Promise((resolve) => {
     threadsafeFunctionClosureCapture(() => {
       resolve()
@@ -934,7 +1245,7 @@ Napi4Test('throw error from thread safe function fatal mode', (t) => {
       t.is(code, 1)
       const stderrMsg = stderr.toString('utf8')
       console.info(stderrMsg)
-      t.true(stderrMsg.includes(`Error: Generic tsfn error`))
+      t.true(stderrMsg.includes(`Error: Failed to convert JavaScript value`))
       resolve()
     })
   })
@@ -970,8 +1281,7 @@ Napi4Test('call ThreadsafeFunction with callback', async (t) => {
 
 Napi4Test('async call ThreadsafeFunction', async (t) => {
   await t.notThrowsAsync(() =>
-    tsfnAsyncCall((err, arg1, arg2, arg3) => {
-      t.is(err, null)
+    tsfnAsyncCall((arg1, arg2, arg3) => {
       t.is(arg1, 0)
       t.is(arg2, 1)
       t.is(arg3, 2)
@@ -1073,6 +1383,20 @@ Napi4Test('object only from js', (t) => {
   })
 })
 
+Napi4Test('build ThreadsafeFunction from Function', (t) => {
+  const subject = new Subject<void>()
+  const fn = (a: number, b: number) => {
+    t.is(a, 1)
+    t.is(b, 2)
+    subject.next()
+    return a * b
+  }
+
+  buildThreadsafeFunctionFromFunction(fn)
+
+  return subject.pipe(take(3))
+})
+
 Napi4Test('promise in either', async (t) => {
   t.is(await promiseInEither(1), false)
   t.is(await promiseInEither(20), true)
@@ -1091,11 +1415,20 @@ Napi5Test('Date test', (t) => {
 
 Napi5Test('Date to chrono test', (t) => {
   const fixture = new Date('2022-02-09T19:31:55.396Z')
-  t.is(chronoDateToMillis(fixture), fixture.getTime())
+  t.is(chronoUtcDateToMillis(fixture), fixture.getTime())
+  t.is(chronoLocalDateToMillis(fixture), fixture.getTime())
+  t.is(chronoDateWithTimezoneToMillis(fixture), fixture.getTime())
   t.deepEqual(
     chronoDateAdd1Minute(fixture),
     new Date(fixture.getTime() + 60 * 1000),
   )
+})
+
+Napi5Test('Get date', (t) => {
+  const fixture1 = new Date('2024-02-07T18:28:18-0800')
+  t.deepEqual(chronoDateFixtureReturn1(), fixture1)
+  const fixture2 = new Date('2024-02-07T18:28:18+0530')
+  t.deepEqual(chronoDateFixtureReturn2(), fixture2)
 })
 
 Napi5Test('Class with getter setter closures', (t) => {
@@ -1132,7 +1465,10 @@ Napi9Test('get module file name', (t) => {
     return
   }
   console.info(getModuleFileName())
-  t.true(getModuleFileName().includes('examples/napi/index.node'))
+  t.regex(
+    getModuleFileName(),
+    new RegExp(`example.${process.platform}-${process.arch}`),
+  )
 })
 
 test('throw syntax error', (t) => {
@@ -1146,4 +1482,77 @@ test('throw syntax error', (t) => {
     },
     message,
   )
+})
+
+test('type', (t) => {
+  const rule: Rule = {
+    name: 'rule',
+    handler: (a) => {
+      return a + 5
+    },
+  }
+  t.is(callRuleHandler(rule, 1), 6)
+})
+
+test('acceptStream', async (t) => {
+  if (process.version.startsWith('v18')) {
+    // https://github.com/nodejs/node/issues/56432
+    t.pass('Skip when Node.js is 18 and WASI due to bug')
+    return
+  }
+  const selfPath = fileURLToPath(import.meta.url)
+  const nodeFileStream = createReadStream(selfPath)
+  const buffer = await acceptStream(Readable.toWeb(nodeFileStream))
+  t.is(buffer.toString('utf-8'), await nodeReadFile(selfPath, 'utf-8'))
+})
+
+test('create readable stream from channel', async (t) => {
+  if (process.env.WASI_TEST) {
+    t.pass(
+      'Skip when WASI because ReadableStream controller.enqueue does not accept SharedArrayBuffer',
+    )
+    return
+  }
+  const stream = await createReadableStream()
+  const chunks = []
+  for await (const chunk of stream) {
+    chunks.push(chunk)
+  }
+  t.is(Buffer.concat(chunks).toString('utf-8'), 'hello'.repeat(100))
+  const { ReadableStream } = await import('web-streams-polyfill')
+  const streamFromClass = await createReadableStreamFromClass(ReadableStream)
+  const chunksFromClass = []
+  for await (const chunk of streamFromClass) {
+    chunksFromClass.push(chunk)
+  }
+  t.is(Buffer.concat(chunksFromClass).toString('utf-8'), 'hello'.repeat(100))
+})
+
+test('spawnThreadInThread should be fine', async (t) => {
+  await new Promise((resolve, reject) => {
+    spawnThreadInThread((err, num) => {
+      if (err) {
+        reject(err)
+      } else {
+        t.is(num, 42)
+        resolve(void 0)
+      }
+      return 0
+    })
+  })
+  t.pass()
+})
+
+test('should generate correct type def file', async (t) => {
+  if (process.env.WASI_TEST) {
+    t.pass()
+  } else {
+    t.snapshot(await nodeReadFile(join(__dirname, '..', 'index.d.cts'), 'utf8'))
+  }
+})
+
+test('should be able to recursively hidden lifetime', async (t) => {
+  await t.notThrowsAsync(async () => {
+    await esmResolve(() => Promise.resolve(undefined))
+  })
 })

@@ -1,6 +1,6 @@
 {
   "name": "@napi-rs/triples",
-  "version": "2.0.0-alpha.7",
+  "version": "2.0.0-alpha.30",
   "description": "Rust target triples objects",
   "keywords": [
     "Rust",
@@ -44,12 +44,13 @@
     "url": "https://github.com/napi-rs/napi-rs/issues"
   },
   "scripts": {
-    "build": "node --loader ts-node/esm/transpile-only ./generate-triple-list.ts && prettier --write ./index.cjs"
+    "build": "node --loader ts-node/esm/transpile-only ./generate-triple-list.ts && ../node_modules/.bin/prettier --write ./index.cjs"
   },
   "devDependencies": {
-    "@types/node": "^20.11.13",
+    "@napi-rs/cli": "workspace:*",
+    "@types/node": "^22.7.5",
     "lodash-es": "^4.17.21",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.6.3"
   }
 }
