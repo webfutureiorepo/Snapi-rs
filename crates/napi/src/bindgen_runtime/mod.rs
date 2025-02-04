@@ -11,6 +11,8 @@ pub use module_register::*;
 use super::sys;
 use crate::{JsError, Result, Status};
 
+#[cfg(feature = "tokio_rt")]
+pub mod async_iterator;
 mod callback_info;
 mod env;
 mod error;
@@ -29,13 +31,13 @@ pub trait ObjectFinalize: Sized {
 ///
 /// called when node wrapper objects destroyed
 #[doc(hidden)]
-pub unsafe extern "C" fn raw_finalize_unchecked<T: ObjectFinalize>(
+pub(crate) unsafe extern "C" fn raw_finalize_unchecked<T: ObjectFinalize>(
   env: sys::napi_env,
   finalize_data: *mut c_void,
   _finalize_hint: *mut c_void,
 ) {
   let data: Box<T> = unsafe { Box::from_raw(finalize_data.cast()) };
-  if let Err(err) = data.finalize(unsafe { Env::from_raw(env) }) {
+  if let Err(err) = data.finalize(Env::from_raw(env)) {
     let e: JsError = err.into();
     unsafe { e.throw_into(env) };
     return;
@@ -86,5 +88,27 @@ pub unsafe extern "C" fn drop_buffer(
   }
   unsafe {
     drop(Box::from_raw(finalize_hint as *mut Buffer));
+  }
+}
+
+/// # Safety
+///
+/// called when node buffer slice is ready for gc
+#[doc(hidden)]
+pub unsafe extern "C" fn drop_buffer_slice(
+  _env: sys::napi_env,
+  finalize_data: *mut c_void,
+  finalize_hint: *mut c_void,
+) {
+  let len = *unsafe { Box::from_raw(finalize_hint.cast()) };
+  #[cfg(all(debug_assertions, not(windows)))]
+  {
+    js_values::BUFFER_DATA.with(|buffer_data| {
+      let mut buffer = buffer_data.lock().expect("Unlock Buffer data failed");
+      buffer.remove(&(finalize_data as *mut u8));
+    });
+  }
+  unsafe {
+    drop(Vec::from_raw_parts(finalize_data, len, len));
   }
 }

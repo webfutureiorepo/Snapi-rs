@@ -2,14 +2,16 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
+use std::ptr;
 use std::rc::{Rc, Weak};
 
+use crate::bindgen_prelude::FromNapiValue;
 use crate::{bindgen_runtime::ToNapiValue, check_status, Env, Error, Result, Status};
 
 type RefInformation = (
-  *mut c_void,
-  crate::sys::napi_ref,
-  *const Cell<*mut dyn FnOnce()>,
+  /* wrapped_value */ *mut c_void,
+  /* napi_ref */ crate::sys::napi_ref,
+  /* finalize_callback */ *const Cell<*mut dyn FnOnce()>,
 );
 
 thread_local! {
@@ -71,18 +73,19 @@ impl<T: 'static> Reference<T> {
     if let Some((wrapped_value, napi_ref, finalize_callbacks_ptr)) =
       REFERENCE_MAP.with(|map| map.borrow().get(&t).cloned())
     {
+      let mut ref_count = 0;
       check_status!(
-        unsafe { crate::sys::napi_reference_ref(env, napi_ref, &mut 0) },
+        unsafe { crate::sys::napi_reference_ref(env, napi_ref, &mut ref_count) },
         "Failed to ref napi reference"
       )?;
       let finalize_callbacks_raw = unsafe { Rc::from_raw(finalize_callbacks_ptr) };
       let finalize_callbacks = finalize_callbacks_raw.clone();
       // Leak the raw finalize callbacks
-      Rc::into_raw(finalize_callbacks_raw);
+      let _ = Rc::into_raw(finalize_callbacks_raw);
       Ok(Self {
-        raw: wrapped_value as *mut T,
+        raw: wrapped_value.cast(),
         napi_ref,
-        env: env as *mut c_void,
+        env: env.cast(),
         finalize_callbacks,
       })
     } else {
@@ -96,12 +99,27 @@ impl<T: 'static> Reference<T> {
 
 impl<T: 'static> ToNapiValue for Reference<T> {
   unsafe fn to_napi_value(env: crate::sys::napi_env, val: Self) -> Result<crate::sys::napi_value> {
-    let mut result = std::ptr::null_mut();
+    let mut result = ptr::null_mut();
     check_status!(
       unsafe { crate::sys::napi_get_reference_value(env, val.napi_ref, &mut result) },
       "Failed to get reference value"
     )?;
     Ok(result)
+  }
+}
+
+impl<T: 'static> FromNapiValue for Reference<T> {
+  unsafe fn from_napi_value(
+    env: crate::sys::napi_env,
+    napi_val: crate::sys::napi_value,
+  ) -> Result<Self> {
+    let mut value = ptr::null_mut();
+    check_status!(
+      unsafe { crate::sys::napi_unwrap(env, napi_val, &mut value) },
+      "Unwrap value [{}] from class Reference failed",
+      std::any::type_name::<T>(),
+    )?;
+    unsafe { Reference::from_value_ptr(value.cast(), env) }
   }
 }
 
@@ -190,7 +208,7 @@ impl<T: 'static> ToNapiValue for WeakReference<T> {
         ),
       ));
     };
-    let mut result = std::ptr::null_mut();
+    let mut result = ptr::null_mut();
     check_status!(
       unsafe { crate::sys::napi_get_reference_value(env, val.napi_ref, &mut result) },
       "Failed to get reference value"
@@ -243,9 +261,6 @@ pub struct SharedReference<T: 'static, S: 'static> {
   owner: Reference<T>,
 }
 
-unsafe impl<T: Send, S: Send> Send for SharedReference<T, S> {}
-unsafe impl<T: Sync, S: Sync> Sync for SharedReference<T, S> {}
-
 impl<T: 'static, S: 'static> SharedReference<T, S> {
   pub fn clone(&self, env: Env) -> Result<Self> {
     Ok(SharedReference {
@@ -281,7 +296,7 @@ impl<T: 'static, S: 'static> SharedReference<T, S> {
 
 impl<T: 'static, S: 'static> ToNapiValue for SharedReference<T, S> {
   unsafe fn to_napi_value(env: crate::sys::napi_env, val: Self) -> Result<crate::sys::napi_value> {
-    let mut result = std::ptr::null_mut();
+    let mut result = ptr::null_mut();
     check_status!(
       unsafe { crate::sys::napi_get_reference_value(env, val.owner.napi_ref, &mut result) },
       "Failed to get reference value"

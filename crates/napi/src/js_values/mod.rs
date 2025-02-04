@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::convert::TryFrom;
 #[cfg(feature = "napi5")]
 use std::ffi::c_void;
@@ -44,7 +46,7 @@ pub use buffer::*;
 #[cfg(feature = "napi5")]
 pub use date::*;
 #[cfg(feature = "serde-json")]
-pub(crate) use de::De;
+pub use de::De;
 #[cfg(feature = "napi4")]
 pub use deferred::*;
 pub use either::Either;
@@ -55,7 +57,7 @@ pub use number::JsNumber;
 pub use object::*;
 pub use object_property::*;
 #[cfg(feature = "serde-json")]
-pub(crate) use ser::Ser;
+pub use ser::Ser;
 pub use string::*;
 pub(crate) use tagged_object::TaggedObject;
 pub use undefined::JsUndefined;
@@ -96,6 +98,7 @@ impl TypeName for JsSymbol {
 
 impl ValidateNapiValue for JsSymbol {}
 
+#[deprecated(since = "3.0.0", note = "Please use `External` instead")]
 pub struct JsExternal(pub(crate) Value);
 
 impl TypeName for JsExternal {
@@ -257,6 +260,14 @@ macro_rules! impl_js_value_methods {
         Ok(is_buffer)
       }
 
+      pub fn is_arraybuffer(&self) -> Result<bool> {
+        let mut is_buffer = false;
+        check_status!(unsafe {
+          sys::napi_is_arraybuffer(self.0.env, self.0.value, &mut is_buffer)
+        })?;
+        Ok(is_buffer)
+      }
+
       pub fn instanceof<Constructor>(&self, constructor: Constructor) -> Result<bool>
       where
         Constructor: NapiRaw,
@@ -331,7 +342,7 @@ macro_rules! impl_object_methods {
           sys::napi_create_function(
             self.0.env,
             name.as_ptr(),
-            len,
+            len as isize,
             Some(function),
             ptr::null_mut(),
             &mut js_function,
@@ -347,7 +358,7 @@ macro_rules! impl_object_methods {
 
       pub fn get_named_property<T>(&self, name: &str) -> Result<T>
       where
-        T: FromNapiValue,
+        T: FromNapiValue + ValidateNapiValue,
       {
         let key = CString::new(name)?;
         let mut raw_value = ptr::null_mut();
@@ -357,10 +368,16 @@ macro_rules! impl_object_methods {
           },
           "get_named_property error"
         )?;
+        unsafe { <T as ValidateNapiValue>::validate(self.0.env, raw_value) }.map_err(
+          |mut err| {
+            err.reason = format!("Object property '{name}' type mismatch. {}", err.reason);
+            err
+          },
+        )?;
         unsafe { <T as FromNapiValue>::from_napi_value(self.0.env, raw_value) }
       }
 
-      pub fn get_named_property_unchecked<T: FromNapiValue>(&self, name: &str) -> Result<T>
+      pub fn get_named_property_unchecked<T>(&self, name: &str) -> Result<T>
       where
         T: FromNapiValue,
       {
@@ -400,10 +417,14 @@ macro_rules! impl_object_methods {
 
       pub fn delete_named_property(&mut self, name: &str) -> Result<bool> {
         let mut result = false;
-        let key_str = CString::new(name)?;
         let mut js_key = ptr::null_mut();
         check_status!(unsafe {
-          sys::napi_create_string_utf8(self.0.env, key_str.as_ptr(), name.len(), &mut js_key)
+          sys::napi_create_string_utf8(
+            self.0.env,
+            name.as_ptr().cast(),
+            name.len() as isize,
+            &mut js_key,
+          )
         })?;
         check_status!(unsafe {
           sys::napi_delete_property(self.0.env, self.0.value, js_key, &mut result)
@@ -413,10 +434,14 @@ macro_rules! impl_object_methods {
 
       pub fn has_own_property(&self, key: &str) -> Result<bool> {
         let mut result = false;
-        let string = CString::new(key)?;
         let mut js_key = ptr::null_mut();
         check_status!(unsafe {
-          sys::napi_create_string_utf8(self.0.env, string.as_ptr(), key.len(), &mut js_key)
+          sys::napi_create_string_utf8(
+            self.0.env,
+            key.as_ptr().cast(),
+            key.len() as isize,
+            &mut js_key,
+          )
         })?;
         check_status!(unsafe {
           sys::napi_has_own_property(self.0.env, self.0.value, js_key, &mut result)
@@ -436,11 +461,15 @@ macro_rules! impl_object_methods {
       }
 
       pub fn has_property(&self, name: &str) -> Result<bool> {
-        let string = CString::new(name)?;
         let mut js_key = ptr::null_mut();
         let mut result = false;
         check_status!(unsafe {
-          sys::napi_create_string_utf8(self.0.env, string.as_ptr(), name.len(), &mut js_key)
+          sys::napi_create_string_utf8(
+            self.0.env,
+            name.as_ptr().cast(),
+            name.len() as isize,
+            &mut js_key,
+          )
         })?;
         check_status!(unsafe {
           sys::napi_has_property(self.0.env, self.0.value, js_key, &mut result)
@@ -711,7 +740,7 @@ impl NapiRaw for JsUnknown {
   }
 }
 
-impl<'env> NapiRaw for &'env JsUnknown {
+impl NapiRaw for &JsUnknown {
   /// get raw js value ptr
   unsafe fn raw(&self) -> sys::napi_value {
     self.0.value

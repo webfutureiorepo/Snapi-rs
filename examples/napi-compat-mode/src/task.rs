@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
 use napi::{
-  CallContext, Env, Error, JsBuffer, JsBufferValue, JsNumber, JsObject, Ref, Result, Task,
+  bindgen_prelude::Buffer, CallContext, Env, Error, JsNumber, JsObject, JsUnknown, Result, Task,
 };
 
 struct ComputeFib {
@@ -35,19 +35,19 @@ fn fibonacci_native(n: u32) -> u32 {
 }
 
 #[js_function(1)]
-fn test_spawn_thread(ctx: CallContext) -> Result<JsObject> {
+fn test_spawn_thread(ctx: CallContext) -> Result<JsUnknown> {
   let n = ctx.get::<JsNumber>(0)?;
   let task = ComputeFib::new(n.try_into()?);
   let async_promise = ctx.env.spawn(task)?;
-  Ok(async_promise.promise_object())
+  Ok(async_promise.promise_object().into_unknown())
 }
 
 struct CountBufferLength {
-  data: Ref<JsBufferValue>,
+  data: Buffer,
 }
 
 impl CountBufferLength {
-  pub fn new(data: Ref<JsBufferValue>) -> Self {
+  pub fn new(data: Buffer) -> Self {
     Self { data }
   }
 }
@@ -67,22 +67,17 @@ impl Task for CountBufferLength {
     env.create_uint32(output as _)
   }
 
-  fn reject(&mut self, env: Env, err: Error) -> Result<Self::JsValue> {
+  fn reject(&mut self, _env: Env, err: Error) -> Result<Self::JsValue> {
     Err(err)
-  }
-
-  fn finally(&mut self, env: Env) -> Result<()> {
-    self.data.unref(env)?;
-    Ok(())
   }
 }
 
 #[js_function(1)]
-fn test_spawn_thread_with_ref(ctx: CallContext) -> Result<JsObject> {
-  let n = ctx.get::<JsBuffer>(0)?.into_ref()?;
+fn test_spawn_thread_with_ref(ctx: CallContext) -> Result<JsUnknown> {
+  let n = ctx.get::<Buffer>(0)?;
   let task = CountBufferLength::new(n);
   let async_work_promise = ctx.env.spawn(task)?;
-  Ok(async_work_promise.promise_object())
+  Ok(async_work_promise.promise_object().into_unknown())
 }
 
 pub fn register_js(exports: &mut JsObject) -> Result<()> {

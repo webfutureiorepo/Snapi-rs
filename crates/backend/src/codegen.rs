@@ -6,6 +6,9 @@ mod r#const;
 mod r#enum;
 mod r#fn;
 mod r#struct;
+mod r#type;
+
+pub use r#struct::rm_raw_prefix;
 
 pub const PROPERTY_ATTRIBUTE_DEFAULT: i32 = 0;
 pub const PROPERTY_ATTRIBUTE_WRITABLE: i32 = 1 << 0;
@@ -24,7 +27,7 @@ pub trait TryToTokens {
 }
 
 fn get_intermediate_ident(name: &str) -> Ident {
-  let new_name = format!("__napi__{}", name);
+  let new_name = format!("_napi_internal_register_{}", name);
   Ident::new(&new_name, Span::call_site())
 }
 
