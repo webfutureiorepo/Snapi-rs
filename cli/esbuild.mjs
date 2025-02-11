@@ -1,11 +1,15 @@
-import * as esbuild from 'esbuild'
+import { build} from 'esbuild'
+import { pull } from 'lodash-es'
 
-await esbuild.build({
+import packageJson from './package.json' with { type: 'json' }
+
+await build({
   entryPoints: ['./dist/index.js'],
   outfile: './dist/index.cjs',
   bundle: true,
+  format: 'cjs',
   platform: 'node',
-  external: ['@napi-rs/lzma', '@napi-rs/tar'],
+  external: pull(Object.keys(packageJson.dependencies), '@octokit/rest', 'lodash-es'),
   define: {
     'import.meta.url': '__filename',
   },

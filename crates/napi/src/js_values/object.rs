@@ -18,6 +18,11 @@ use crate::Error;
 use crate::Result;
 
 pub struct JsObject(pub(crate) Value);
+impl From<Value> for JsObject {
+  fn from(value: Value) -> Self {
+    Self(value)
+  }
+}
 
 #[cfg(feature = "napi5")]
 pub struct FinalizeContext<T: 'static, Hint: 'static> {
@@ -37,7 +42,7 @@ impl JsObject {
   where
     T: 'static,
     Hint: 'static,
-    F: FnOnce(FinalizeContext<T, Hint>),
+    F: FnOnce(FinalizeContext<T, Hint>) + 'static,
   {
     let mut maybe_ref = ptr::null_mut();
     let wrap_context = Box::leak(Box::new((native, finalize_cb, ptr::null_mut())));
@@ -76,7 +81,7 @@ unsafe extern "C" fn finalize_callback<T, Hint, F>(
   let (value, callback, raw_ref) =
     unsafe { *Box::from_raw(finalize_data as *mut (T, F, sys::napi_ref)) };
   let hint = unsafe { *Box::from_raw(finalize_hint as *mut Hint) };
-  let env = unsafe { Env::from_raw(raw_env) };
+  let env = Env::from_raw(raw_env);
   callback(FinalizeContext { env, value, hint });
   if !raw_ref.is_null() {
     let status = unsafe { sys::napi_delete_reference(raw_env, raw_ref) };

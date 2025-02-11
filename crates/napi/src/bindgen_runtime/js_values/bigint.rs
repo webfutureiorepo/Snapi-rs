@@ -90,29 +90,39 @@ impl BigInt {
   }
 
   /// (value, lossless)
-  /// get the first word of the BigInt as `i64`
+  /// get the first word of the BigInt as `i64` with the sign applied
   /// return true if the value is lossless
   /// or the value is truncated
   pub fn get_i64(&self) -> (i64, bool) {
-    let val = self.words[0] as i64;
-    (val, val as u64 == self.words[0] && self.words.len() == 1)
+    if self.sign_bit && self.words[0] == i64::MIN.unsigned_abs() {
+      return (i64::MIN, self.words.len() == 1);
+    }
+    (
+      self.words[0] as i64 * if self.sign_bit { -1 } else { 1 },
+      self.words.len() == 1 && self.words[0] as i64 >= 0,
+    )
   }
 
   /// (value, lossless)
-  /// get the first two words of the BigInt as `i128`
+  /// get the first two words of the BigInt as `i128` with the sign applied
   /// return true if the value is lossless
   /// or the value is truncated
   pub fn get_i128(&self) -> (i128, bool) {
     let len = self.words.len();
     if len == 1 {
-      (self.words[0] as i128, false)
+      (
+        self.words[0] as i128 * if self.sign_bit { -1 } else { 1 },
+        true,
+      )
     } else {
-      let i128_words: [i64; 2] = [self.words[0] as _, self.words[1] as _];
-      let mut val = unsafe { ptr::read(i128_words.as_ptr() as *const i128) };
-      if self.sign_bit {
-        val = -val;
+      let val = self.words[0] as u128 + ((self.words[1] as u128) << 64);
+      if self.sign_bit && val == i128::MIN.unsigned_abs() {
+        return (i128::MIN, len > 2);
       }
-      (val, len > 2)
+      (
+        val as i128 * if self.sign_bit { -1 } else { 1 },
+        len == 2 && self.words[1] as i64 >= 0,
+      )
     }
   }
 
@@ -123,11 +133,10 @@ impl BigInt {
   pub fn get_u128(&self) -> (bool, u128, bool) {
     let len = self.words.len();
     if len == 1 {
-      (self.sign_bit, self.words[0] as u128, false)
+      (self.sign_bit, self.words[0] as u128, true)
     } else {
-      let u128_words: [u64; 2] = [self.words[0], self.words[1]];
-      let val = unsafe { ptr::read(u128_words.as_ptr() as *const u128) };
-      (self.sign_bit, val, len > 2)
+      let val = self.words[0] as u128 + ((self.words[1] as u128) << 64);
+      (self.sign_bit, val, len == 2)
     }
   }
 }
@@ -152,24 +161,61 @@ impl ToNapiValue for BigInt {
   }
 }
 
-impl ToNapiValue for i128 {
-  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
-    let mut raw_value = ptr::null_mut();
-    let sign_bit = i32::from(val <= 0);
-    let words = &val as *const i128 as *const u64;
+pub(crate) unsafe fn u128_with_sign_to_napi_value(
+  env: sys::napi_env,
+  val: u128,
+  sign_bit: i32,
+) -> crate::Result<sys::napi_value> {
+  let mut raw_value = ptr::null_mut();
+  if cfg!(target_endian = "little") {
+    let words = &val as *const u128 as *const u64;
     check_status!(unsafe {
       sys::napi_create_bigint_words(env, sign_bit, 2, words, &mut raw_value)
     })?;
-    Ok(raw_value)
+    return Ok(raw_value);
+  }
+
+  let arr: [u64; 2] = [val as _, (val >> 64) as _];
+  let words = &arr as *const u64;
+  check_status!(unsafe { sys::napi_create_bigint_words(env, sign_bit, 2, words, &mut raw_value) })?;
+  Ok(raw_value)
+}
+
+impl ToNapiValue for i128 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    let sign_bit = i32::from(val <= 0);
+    let val = val.unsigned_abs();
+    u128_with_sign_to_napi_value(env, val, sign_bit)
+  }
+}
+
+impl ToNapiValue for &i128 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
+  }
+}
+
+impl ToNapiValue for &mut i128 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
   }
 }
 
 impl ToNapiValue for u128 {
   unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
-    let mut raw_value = ptr::null_mut();
-    let words = &val as *const u128 as *const u64;
-    check_status!(unsafe { sys::napi_create_bigint_words(env, 0, 2, words, &mut raw_value) })?;
-    Ok(raw_value)
+    u128_with_sign_to_napi_value(env, val, 0)
+  }
+}
+
+impl ToNapiValue for &u128 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
+  }
+}
+
+impl ToNapiValue for &mut u128 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
   }
 }
 
@@ -181,11 +227,35 @@ impl ToNapiValue for i64n {
   }
 }
 
+impl ToNapiValue for &i64n {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, i64n(val.0))
+  }
+}
+
+impl ToNapiValue for &mut i64n {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, i64n(val.0))
+  }
+}
+
 impl ToNapiValue for u64 {
   unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
     let mut raw_value = ptr::null_mut();
     check_status!(unsafe { sys::napi_create_bigint_uint64(env, val, &mut raw_value) })?;
     Ok(raw_value)
+  }
+}
+
+impl ToNapiValue for &u64 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
+  }
+}
+
+impl ToNapiValue for &mut u64 {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
   }
 }
 
@@ -205,11 +275,23 @@ impl ToNapiValue for isize {
   }
 }
 
+impl ToNapiValue for &usize {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
+  }
+}
+
+impl ToNapiValue for &mut usize {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> crate::Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, *val)
+  }
+}
+
 impl From<i64> for BigInt {
   fn from(val: i64) -> Self {
     BigInt {
       sign_bit: val < 0,
-      words: vec![val as u64],
+      words: vec![val.unsigned_abs()],
     }
   }
 }
@@ -226,20 +308,19 @@ impl From<u64> for BigInt {
 impl From<i128> for BigInt {
   fn from(val: i128) -> Self {
     let sign_bit = val < 0;
-    let words = (if sign_bit { -val } else { val }).to_ne_bytes();
+    let val = val.unsigned_abs();
     BigInt {
       sign_bit,
-      words: unsafe { std::slice::from_raw_parts(words.as_ptr() as *mut _, 2).to_vec() },
+      words: vec![val as _, (val >> 64) as _],
     }
   }
 }
 
 impl From<u128> for BigInt {
   fn from(val: u128) -> Self {
-    let words = val.to_ne_bytes();
     BigInt {
       sign_bit: false,
-      words: unsafe { std::slice::from_raw_parts(words.as_ptr() as *mut _, 2).to_vec() },
+      words: vec![val as _, (val >> 64) as _],
     }
   }
 }

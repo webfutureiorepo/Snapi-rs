@@ -2,7 +2,7 @@ use std::thread::spawn;
 
 use napi::{
   bindgen_prelude::*,
-  threadsafe_function::{ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
+  threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
 };
 
 #[macro_use]
@@ -42,7 +42,7 @@ pub struct Room {
 }
 
 #[napi]
-pub fn test_async(env: Env) -> napi::Result<napi::JsObject> {
+pub fn test_async(env: &Env) -> napi::Result<napi::bindgen_prelude::PromiseRaw<String>> {
   let data = serde_json::json!({
       "findFirstBooking": {
           "id": "ckovh15xa104945sj64rdk8oas",
@@ -64,11 +64,11 @@ pub fn test_async(env: Env) -> napi::Result<napi::JsObject> {
           "room": { "id": "ckovh15xa104955sj6r2tqaw1c", "name": "38683b87f2664" }
       }
   });
-  env.execute_tokio_future(
+  env.spawn_future_with_callback(
     async move { Ok(serde_json::to_string(&data).unwrap()) },
     |env, res| {
       env.adjust_external_memory(res.len() as i64)?;
-      env.create_string_from_std(res)
+      Ok(())
     },
   )
 }
@@ -95,7 +95,7 @@ pub struct MemoryHolder(Vec<u8>);
 #[napi]
 impl MemoryHolder {
   #[napi(constructor)]
-  pub fn new(mut env: Env, len: u32) -> Result<Self> {
+  pub fn new(env: Env, len: u32) -> Result<Self> {
     env.adjust_external_memory(len as i64)?;
     Ok(Self(vec![42; len as usize]))
   }
@@ -124,19 +124,17 @@ impl ChildReference {
 }
 
 #[napi]
-pub fn leaking_func(env: Env, func: JsFunction) -> napi::Result<()> {
-  let mut tsfn: ThreadsafeFunction<String> =
-    func.create_threadsafe_function(0, |mut ctx: ThreadSafeCallContext<String>| {
+pub fn leaking_func(func: Function<String, String>) -> napi::Result<()> {
+  let tsfn = func
+    .build_threadsafe_function()
+    .weak::<true>()
+    .build_callback(|ctx: ThreadsafeCallContext<String>| {
       ctx.env.adjust_external_memory(ctx.value.len() as i64)?;
-      ctx
-        .env
-        .create_string_from_std(ctx.value)
-        .map(|js_string| vec![js_string])
+      Ok(ctx.value)
     })?;
 
-  tsfn.unref(&env)?;
   spawn(move || {
-    tsfn.call(Ok("foo".into()), ThreadsafeFunctionCallMode::Blocking);
+    tsfn.call("foo".into(), ThreadsafeFunctionCallMode::Blocking);
   });
 
   Ok(())

@@ -1,6 +1,14 @@
 import type { SupportedPackageManager } from '../../utils/config.js'
 
-export const YAML = (packageManager: SupportedPackageManager) => `
+export type WasiTargetName =
+  | 'wasm32-wasi-preview1-threads'
+  | 'wasm32-wasip1-threads'
+  | 'wasm32-wasip2'
+
+export const YAML = (
+  packageManager: SupportedPackageManager,
+  wasiTargetName: WasiTargetName,
+) => `
 name: CI
 
 env:
@@ -34,7 +42,7 @@ jobs:
         settings:
           - host: macos-latest
             target: 'x86_64-apple-darwin'
-            build: ${packageManager} build --platform
+            build: ${packageManager} build --platform --target x86_64-apple-darwin
           - host: windows-latest
             build: ${packageManager} build --platform
             target: 'x86_64-pc-windows-msvc'
@@ -59,6 +67,9 @@ jobs:
             target: 'armv7-unknown-linux-gnueabihf'
             build: ${packageManager} build --platform --target armv7-unknown-linux-gnueabihf --use-napi-cross
           - host: ubuntu-latest
+            target: 'armv7-unknown-linux-musleabihf'
+            build: ${packageManager} build --platform --target armv7-unknown-linux-musleabihf -x
+          - host: ubuntu-latest
             target: 'aarch64-linux-android'
             build: ${packageManager} build --platform --target aarch64-linux-android
           - host: ubuntu-latest
@@ -77,8 +88,20 @@ jobs:
               sudo apt-get install gcc-riscv64-linux-gnu -y
             build: ${packageManager} build --platform --target riscv64gc-unknown-linux-gnu
           - host: ubuntu-latest
-            target: 'wasm32-wasi-preview1-threads'
-            build: ${packageManager} build --platform --target wasm32-wasi-preview1-threads
+            target: 'powerpc64le-unknown-linux-gnu'
+            setup: |
+              sudo apt-get update
+              sudo apt-get install gcc-powerpc64le-linux-gnu -y
+            build: ${packageManager} build --platform --target powerpc64le-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: 's390x-unknown-linux-gnu'
+            setup: |
+              sudo apt-get update
+              sudo apt-get install gcc-s390x-linux-gnu -y
+            build: ${packageManager} build --platform --target s390x-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: '${wasiTargetName}'
+            build: ${packageManager} build --platform --target ${wasiTargetName}
 
     name: stable - \${{ matrix.settings.target }} - node@20
     runs-on: \${{ matrix.settings.host }}
@@ -99,7 +122,7 @@ jobs:
           targets: \${{ matrix.settings.target }}
 
       - name: Cache cargo
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -113,7 +136,15 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         if: \${{ contains(matrix.settings.target, 'musl') }}
         with:
-          version: 0.11.0
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        if: \${{ contains(matrix.settings.target, 'musl') }}
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
+        with:
+          tool: cargo-zigbuild
 
       - name: Setup toolchain
         run: \${{ matrix.settings.setup }}
@@ -141,7 +172,7 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
-        if: matrix.settings.target != 'wasm32-wasi-preview1-threads'
+        if: matrix.settings.target != '${wasiTargetName}'
         with:
           name: bindings-\${{ matrix.settings.target }}
           path: "*.node"
@@ -149,27 +180,26 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
-        if: matrix.settings.target == 'wasm32-wasi-preview1-threads'
+        if: matrix.settings.target == '${wasiTargetName}'
         with:
           name: bindings-\${{ matrix.settings.target }}
           path: "*.wasm"
           if-no-files-found: error
 
   build-freebsd:
-    runs-on: macos-12
+    runs-on: ubuntu-latest
     name: Build FreeBSD
     steps:
       - uses: actions/checkout@v4
       - name: Build
         id: build
-        uses: cross-platform-actions/action@v0.21.1
-        timeout-minutes: 30
+        uses: cross-platform-actions/action@v0.25.0
         env:
           DEBUG: 'napi:*'
           RUSTUP_IO_THREADS: 1
         with:
           operating_system: freebsd
-          version: '13.2'
+          version: '14.1'
           memory: 8G
           cpu_count: 3
           environment_variables: 'DEBUG RUSTUP_IO_THREADS'
@@ -215,8 +245,13 @@ jobs:
         settings:
           - host: macos-latest
             target: 'x86_64-apple-darwin'
+            architecture: x64
+          - host: macos-latest
+            target: 'aarch64-apple-darwin'
+            architecture: arm64
           - host: windows-latest
             target: 'x86_64-pc-windows-msvc'
+            architecture: x64
         node: ['18', '20']
     runs-on: \${{ matrix.settings.host }}
 
@@ -228,6 +263,7 @@ jobs:
         with:
           node-version: \${{ matrix.node }}
           cache: '${packageManager}'
+          architecture: \${{ matrix.settings.architecture }}
 
       - name: 'Install dependencies'
         run: ${packageManager} install
@@ -243,7 +279,7 @@ jobs:
         shell: bash
 
       - name: Test bindings
-        run: ${packageManager} test
+        run: ${packageManager} run test
 
   test-linux-x64-gnu-binding:
     name: Test bindings on Linux-x64-gnu - node@\${{ matrix.node }}
@@ -278,7 +314,7 @@ jobs:
         shell: bash
 
       - name: Test bindings
-        run: docker run --rm -v $(pwd):/build -w /build node:\${{ matrix.node }}-slim yarn test
+        run: docker run --rm -v $(pwd):/build -w /build node:\${{ matrix.node }}-slim ${packageManager} run test
 
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@\${{ matrix.node }}
@@ -297,7 +333,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: \${{ matrix.node }}
-          cache: 'yarn'
+          cache: '${packageManager}'
 
       - name: 'Install dependencies'
         run: |
@@ -315,7 +351,7 @@ jobs:
         shell: bash
 
       - name: Test bindings
-        run: docker run --rm -v $(pwd):/build -w /build node:\${{ matrix.node }}-alpine yarn test
+        run: docker run --rm -v $(pwd):/build -w /build node:\${{ matrix.node }}-alpine ${packageManager} run test
 
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@\${{ matrix.node }}
@@ -357,7 +393,7 @@ jobs:
         with:
           image: node:\${{ matrix.node }}-slim
           options: --platform linux/arm64 -v \${{ github.workspace }}:/build -w /build
-          run: yarn test
+          run: ${packageManager} run test
 
   test-linux-aarch64-musl-binding:
     name: Test bindings on aarch64-unknown-linux-musl - node@\${{ matrix.node }}
@@ -400,7 +436,7 @@ jobs:
         with:
           image: node:\${{ matrix.node }}-alpine
           options: --platform linux/arm64 -v \${{ github.workspace }}:/build -w /build
-          run: yarn test
+          run: ${packageManager} run test
 
   test-linux-arm-gnueabihf-binding:
     name: Test bindings on armv7-unknown-linux-gnueabihf - node@\${{ matrix.node }}
@@ -496,7 +532,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: bindings-wasm32-wasi-preview1-threads
+          name: bindings-${wasiTargetName}
           path: .
       - name: List packages
         run: ls -R .
@@ -543,7 +579,7 @@ jobs:
           path: artifacts
 
       - name: Move artifacts
-        run: yarn artifacts
+        run: ${packageManager} artifacts
 
       - name: List packages
         run: ls -R ./npm

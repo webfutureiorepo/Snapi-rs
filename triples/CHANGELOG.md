@@ -3,6 +3,116 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.0.0-alpha.32](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.31...@napi-rs/triples@2.0.0-alpha.32) (2025-01-29)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.31](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.30...@napi-rs/triples@2.0.0-alpha.31) (2025-01-26)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.30](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.29...@napi-rs/triples@2.0.0-alpha.30) (2025-01-20)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.29](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.28...@napi-rs/triples@2.0.0-alpha.29) (2025-01-19)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.28](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.27...@napi-rs/triples@2.0.0-alpha.28) (2025-01-19)
+
+### Bug Fixes
+
+- **triples:** file style ([75eaff8](https://github.com/napi-rs/napi-rs/commit/75eaff85ae9760aaa0b888d1609e756c2d85b718))
+
+# [2.0.0-alpha.27](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.26...@napi-rs/triples@2.0.0-alpha.27) (2024-12-18)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.26](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.25...@napi-rs/triples@2.0.0-alpha.26) (2024-10-21)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.25](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.24...@napi-rs/triples@2.0.0-alpha.25) (2024-10-02)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.24](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.23...@napi-rs/triples@2.0.0-alpha.24) (2024-07-21)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.23](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.22...@napi-rs/triples@2.0.0-alpha.23) (2024-07-18)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.22](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.21...@napi-rs/triples@2.0.0-alpha.22) (2024-07-16)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.21](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.20...@napi-rs/triples@2.0.0-alpha.21) (2024-07-15)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.20](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.19...@napi-rs/triples@2.0.0-alpha.20) (2024-07-11)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.19](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.18...@napi-rs/triples@2.0.0-alpha.19) (2024-07-09)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.18](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.17...@napi-rs/triples@2.0.0-alpha.18) (2024-07-05)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.17](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.16...@napi-rs/triples@2.0.0-alpha.17) (2024-05-12)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.16](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.15...@napi-rs/triples@2.0.0-alpha.16) (2024-04-23)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.14](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.13...@napi-rs/triples@2.0.0-alpha.14) (2024-04-22)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.13](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.12...@napi-rs/triples@2.0.0-alpha.13) (2024-04-19)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.12](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.11...@napi-rs/triples@2.0.0-alpha.12) (2024-04-17)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.11](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.10...@napi-rs/triples@2.0.0-alpha.11) (2024-04-16)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.10](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.9...@napi-rs/triples@2.0.0-alpha.10) (2024-04-15)
+
+**Note:** Version bump only for package @napi-rs/triples
+
+# [2.0.0-alpha.9](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.5...@napi-rs/triples@2.0.0-alpha.9) (2024-04-13)
+
+### Bug Fixes
+
+- **cli:** also load wasm file from packages ([#1876](https://github.com/napi-rs/napi-rs/issues/1876)) ([b0ba466](https://github.com/napi-rs/napi-rs/commit/b0ba466f9521b02eeb94b88aacad01558bfa12bc))
+
+### Features
+
+- **target:** add support for powerpc64le-unknown-linux-gnu ([#2023](https://github.com/napi-rs/napi-rs/issues/2023)) ([0fa755d](https://github.com/napi-rs/napi-rs/commit/0fa755d30ac5d7abb16dfa59b58d61deaaa7984c))
+
+# [2.0.0-alpha.8](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.5...@napi-rs/triples@2.0.0-alpha.8) (2024-04-10)
+
+### Bug Fixes
+
+- **cli:** also load wasm file from packages ([#1876](https://github.com/napi-rs/napi-rs/issues/1876)) ([b0ba466](https://github.com/napi-rs/napi-rs/commit/b0ba466f9521b02eeb94b88aacad01558bfa12bc))
+
+### Features
+
+- **target:** add support for powerpc64le-unknown-linux-gnu ([#2023](https://github.com/napi-rs/napi-rs/issues/2023)) ([0fa755d](https://github.com/napi-rs/napi-rs/commit/0fa755d30ac5d7abb16dfa59b58d61deaaa7984c))
+
 # [2.0.0-alpha.7](https://github.com/napi-rs/napi-rs/compare/@napi-rs/triples@2.0.0-alpha.5...@napi-rs/triples@2.0.0-alpha.7) (2023-12-29)
 
 ### Bug Fixes

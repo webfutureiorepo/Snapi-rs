@@ -12,36 +12,37 @@ A framework for building compiled `Node.js` add-ons in `Rust` via Node-API. Webs
   <a href="https://docs.rs/crate/napi"><img src="https://docs.rs/napi/badge.svg"></img></a>
   <a href="https://crates.io/crates/napi"><img src="https://img.shields.io/crates/v/napi.svg"></img></a>
   <a href="https://www.npmjs.com/package/@napi-rs/cli"><img src="https://img.shields.io/npm/v/@napi-rs/cli.svg"></img></a>
-  <a href="https://stakes.social/0x2C9F5c3ebC01A45D34198229E60eE186eCDc5C5E"><img src="https://badge.devprotocol.xyz/0x2C9F5c3ebC01A45D34198229E60eE186eCDc5C5E/descriptive" alt="Stake to support us"></img></a>
 </p>
 
 ## Platform Support
 
 [![Test & Release](https://github.com/napi-rs/napi-rs/actions/workflows/test-release.yaml/badge.svg)](https://github.com/napi-rs/napi-rs/actions/workflows/test-release.yaml)
-[![FreeBSD](https://api.cirrus-ci.com/github/napi-rs/napi-rs.svg)](https://cirrus-ci.com/github/napi-rs/napi-rs?branch=main)
 [![Address Sanitizer](https://github.com/napi-rs/napi-rs/actions/workflows/asan.yml/badge.svg)](https://github.com/napi-rs/napi-rs/actions/workflows/asan.yml)
 [![Memory Leak Detect](https://github.com/napi-rs/napi-rs/actions/workflows/memory-test.yml/badge.svg)](https://github.com/napi-rs/napi-rs/actions/workflows/memory-test.yml)
 
 ## MSRV
 
-**Rust** `1.65.0`
+**Rust** `1.80.0`
 
-|                       | node12 | node14 | node16 | node18 | node20 |
-| --------------------- | ------ | ------ | ------ | ------ | ------ |
-| Windows x64           | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Windows x86           | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Windows arm64         | ✓      | ✓      | ✓      | ✓      | ✓      |
-| macOS x64             | ✓      | ✓      | ✓      | ✓      | ✓      |
-| macOS aarch64         | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux x64 gnu         | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux x64 musl        | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux aarch64 gnu     | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux aarch64 musl    | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux arm gnueabihf   | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux riscv64 gnu     | N/A    | N/A    | ✓      | ✓      | ✓      |
-| Linux aarch64 android | ✓      | ✓      | ✓      | ✓      | ✓      |
-| Linux armv7 android   | ✓      | ✓      | ✓      | ✓      | ✓      |
-| FreeBSD x64           | ✓      | ✓      | ✓      | ✓      | ✓      |
+|                       | node12 | node14 | node16 | node18 | node20 | node22 |
+| --------------------- | ------ | ------ | ------ | ------ | ------ | ------ |
+| Windows x64           | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Windows x86           | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Windows arm64         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| macOS x64             | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| macOS aarch64         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux x64 gnu         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux x64 musl        | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux aarch64 gnu     | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux aarch64 musl    | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux arm gnueabihf   | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux arm muslebihf   | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux powerpc64le gnu | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux s390x gnu       | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux riscv64 gnu     | N/A    | N/A    | ✓      | ✓      | ✓      | ✓      |
+| Linux aarch64 android | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| Linux armv7 android   | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| FreeBSD x64           | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 
 This library depends on Node-API and requires `Node@10.0.0` or later.
 
@@ -115,8 +116,8 @@ name = "awesome"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = "2"
-napi-derive = "2"
+napi = "3"
+napi-derive = "3"
 
 [build-dependencies]
 napi-build = "1"
