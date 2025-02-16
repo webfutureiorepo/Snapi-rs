@@ -11,8 +11,10 @@ crate-type = ["cdylib"]
 [features]
 latest = ["napi/napi9"]
 napi3 = ["napi/napi3"]
+dyn-symbols = ["napi/dyn-symbols"]
 
 [dependencies]
+ctor = "0.3"
 futures = "0.3"
 napi = { path = "../../crates/napi", features = [
   "tokio_rt",

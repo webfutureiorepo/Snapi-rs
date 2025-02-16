@@ -24,8 +24,12 @@ mod number;
 mod object;
 #[cfg(all(feature = "tokio_rt", feature = "napi4"))]
 mod promise;
+mod promise_raw;
 #[cfg(feature = "serde-json")]
 mod serde;
+mod set;
+#[cfg(feature = "web_stream")]
+mod stream;
 mod string;
 mod symbol;
 mod task;
@@ -47,13 +51,13 @@ pub use nil::*;
 pub use object::*;
 #[cfg(all(feature = "tokio_rt", feature = "napi4"))]
 pub use promise::*;
+pub use promise_raw::*;
+#[cfg(feature = "web_stream")]
+pub use stream::*;
 pub use string::*;
 pub use symbol::*;
 pub use task::*;
 pub use value_ref::*;
-
-#[cfg(feature = "latin1")]
-pub use string::latin1_string::*;
 
 pub trait TypeName {
   fn type_name() -> &'static str;
@@ -126,7 +130,7 @@ pub trait FromNapiMutRef {
   ) -> Result<&'static mut Self>;
 }
 
-pub trait ValidateNapiValue: FromNapiValue + TypeName {
+pub trait ValidateNapiValue: TypeName {
   /// # Safety
   ///
   /// this function called to validate whether napi value passed to rust is valid type
@@ -315,6 +319,24 @@ where
   }
 }
 
+impl<T> ToNapiValue for &Rc<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    unsafe { T::to_napi_value(env, (**val).clone()) }
+  }
+}
+
+impl<T> ToNapiValue for &mut Rc<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    unsafe { T::to_napi_value(env, (**val).clone()) }
+  }
+}
+
 impl<T: TypeName> TypeName for Arc<T> {
   fn type_name() -> &'static str {
     T::type_name()
@@ -371,6 +393,24 @@ where
 {
   unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
     unsafe { T::to_napi_value(env, (*val).clone()) }
+  }
+}
+
+impl<T> ToNapiValue for &Arc<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    unsafe { T::to_napi_value(env, (**val).clone()) }
+  }
+}
+
+impl<T> ToNapiValue for &mut Arc<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    unsafe { T::to_napi_value(env, (**val).clone()) }
   }
 }
 
@@ -438,5 +478,31 @@ where
         )),
       }
     }
+  }
+}
+
+impl<T> ToNapiValue for &Mutex<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    unsafe {
+      match val.lock() {
+        Ok(inner) => T::to_napi_value(env, inner.clone()),
+        Err(_) => Err(Error::new(
+          Status::GenericFailure,
+          "Failed to acquire a lock",
+        )),
+      }
+    }
+  }
+}
+
+impl<T> ToNapiValue for &mut Mutex<T>
+where
+  T: ToNapiValue + Clone,
+{
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+    ToNapiValue::to_napi_value(env, &*val)
   }
 }

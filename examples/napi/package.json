@@ -7,24 +7,44 @@
   "types": "./index.d.ts",
   "scripts": {
     "browser": "vite",
-    "build": "napi-raw build",
-    "test": "cross-env TS_NODE_PROJECT=./tsconfig.json node --es-module-specifier-resolution=node --loader ts-node/esm/transpile-only --experimental-wasi-unstable-preview1 ../../node_modules/ava/entrypoints/cli.mjs"
+    "build": "napi-raw build --platform --js index.cjs --dts index.d.cts",
+    "test": "cross-env TS_NODE_PROJECT=./tsconfig.json node --enable-source-maps --import @oxc-node/core/register ../../node_modules/ava/entrypoints/cli.mjs"
+  },
+  "napi": {
+    "binaryName": "example",
+    "wasm": {
+      "initialMemory": 16384,
+      "browser": {
+        "fs": true
+      }
+    },
+    "dtsHeader": "type MaybePromise<T> = T | Promise<T>",
+    "dtsHeaderFile": "./dts-header.d.ts",
+    "targets": [
+      "wasm32-wasip1-threads"
+    ]
   },
   "devDependencies": {
     "@napi-rs/cli": "workspace:*",
+    "@napi-rs/triples": "workspace:*",
     "@napi-rs/wasm-runtime": "workspace:*",
-    "@types/lodash": "^4.14.202",
-    "@vitest/browser": "^1.2.2",
-    "@vitest/ui": "^1.2.2",
-    "ava": "^6.1.1",
+    "@oxc-node/core": "^0.0.19",
+    "@types/lodash": "^4.17.10",
+    "@vitest/browser": "^3.0.0",
+    "@vitest/ui": "^3.0.0",
+    "ava": "^6.1.3",
+    "buffer": "^6.0.3",
     "cross-env": "7.0.3",
-    "electron": "^28.2.0",
+    "electron": "^34.0.0",
     "lodash": "^4.17.21",
-    "sinon": "^17.0.1",
-    "vite": "^5.0.12",
-    "vite-plugin-node-polyfills": "^0.19.0",
-    "vitest": "^1.2.2",
-    "webdriverio": "^8.29.3"
+    "playwright": "^1.48.0",
+    "rxjs": "^7.8.1",
+    "sinon": "^19.0.2",
+    "vite": "^6.0.0",
+    "vite-plugin-node-polyfills": "^0.23.0",
+    "vitest": "^3.0.0",
+    "web-streams-polyfill": "^4.1.0",
+    "webdriverio": "^9.2.1"
   },
   "ava": {
     "extensions": {
@@ -39,9 +59,6 @@
     "timeout": "10m"
   },
   "dependencies": {
-    "@emnapi/core": "1.0.0",
-    "@types/lodash": "^4.14.202",
-    "lodash": "^4.17.21",
-    "sinon": "^17.0.1"
+    "@emnapi/core": "^1.3.1"
   }
 }
