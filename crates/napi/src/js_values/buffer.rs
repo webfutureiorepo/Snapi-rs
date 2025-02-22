@@ -4,10 +4,12 @@ use std::ptr;
 
 use super::{Value, ValueType};
 use crate::bindgen_runtime::ValidateNapiValue;
+use crate::Env;
 use crate::{
   bindgen_runtime::TypeName, check_status, sys, Error, JsUnknown, NapiValue, Ref, Result, Status,
 };
 
+#[deprecated(since = "3.0.0", note = "Please use Buffer or &[u8] instead")]
 pub struct JsBuffer(pub(crate) Value);
 
 impl TypeName for JsBuffer {
@@ -34,6 +36,7 @@ impl ValidateNapiValue for JsBuffer {
   }
 }
 
+#[deprecated(since = "3.0.0", note = "Please use Buffer or &[u8] instead")]
 pub struct JsBufferValue {
   pub(crate) value: JsBuffer,
   data: mem::ManuallyDrop<Vec<u8>>,
@@ -52,29 +55,12 @@ impl JsBuffer {
     })
   }
 
-  pub fn into_ref(self) -> Result<Ref<JsBufferValue>> {
-    Ref::new(self.0, 1, self.into_value()?)
+  pub fn into_ref(self) -> Result<Ref<JsBuffer>> {
+    Ref::new(&Env::from(self.0.env), &self)
   }
 }
 
 impl JsBufferValue {
-  #[cfg(feature = "serde-json")]
-  pub(crate) fn from_raw(env: sys::napi_env, value: sys::napi_value) -> Result<Self> {
-    let mut data = ptr::null_mut();
-    let mut len = 0usize;
-    check_status!(unsafe {
-      sys::napi_get_buffer_info(env, value, &mut data, &mut len as *mut usize as *mut _)
-    })?;
-    Ok(Self {
-      value: JsBuffer(Value {
-        env,
-        value,
-        value_type: ValueType::Object,
-      }),
-      data: mem::ManuallyDrop::new(unsafe { Vec::from_raw_parts(data as *mut _, len, len) }),
-    })
-  }
-
   pub fn new(value: JsBuffer, data: mem::ManuallyDrop<Vec<u8>>) -> Self {
     JsBufferValue { value, data }
   }

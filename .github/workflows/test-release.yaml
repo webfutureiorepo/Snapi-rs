@@ -4,6 +4,8 @@ env:
   DEBUG: 'napi:*'
   RUST_BACKTRACE: 1
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
+  # https://github.com/nodejs/node/issues/51555#issuecomment-2290742072
+  DISABLE_V8_COMPILE_CACHE: 1
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,7 +32,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'yarn'
 
       - name: Install
@@ -63,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['18', '20']
+        node: ['18', '20', '22']
         settings:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -82,9 +84,9 @@ jobs:
               yarn test --verbose
               yarn tsc -p examples/napi/tsconfig.json --noEmit --skipLibCheck
               yarn test:macro
-            toolchain: 1.65.0
+            toolchain: 1.80.0
           - host: macos-latest
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             build: yarn build:test
             test: |
               yarn test:cli
@@ -113,14 +115,17 @@ jobs:
             toolchain: stable
         exclude:
           - settings:
-              toolchain: 1.65.0
+              toolchain: 1.80.0
             node: 18
           - settings:
-              toolchain: 1.65.0
+              toolchain: 1.80.0
             node: 20
           - settings:
               target: i686-pc-windows-msvc
             node: 18
+          - settings:
+              target: i686-pc-windows-msvc
+            node: 20
     name: ${{ matrix.settings.host }} - node@${{ matrix.node }} - toolchain@ ${{ matrix.settings.toolchain }}
     runs-on: ${{ matrix.settings.host }}
 
@@ -150,7 +155,9 @@ jobs:
 
       - name: 'Install dependencies'
         shell: bash
-        run: yarn install --mode=skip-build --immutable
+        run: |
+          yarn config set supportedArchitectures.cpu --json '["current", "x64", "ia32", "wasm32"]'
+          yarn install --mode=skip-build --immutable
 
       - name: Check build
         run: cargo check --target ${{ matrix.settings.target }} --all --bins --examples --tests -vvv
@@ -163,7 +170,7 @@ jobs:
         uses: actions/setup-node@v4
         if: matrix.settings.target == 'i686-pc-windows-msvc'
         with:
-          node-version: 18
+          node-version: 22
           architecture: 'x86'
 
       - name: Unit tests
@@ -171,7 +178,7 @@ jobs:
         run: ${{ matrix.settings.test }}
 
       - name: Electron tests
-        if: matrix.settings.target == 'x86_64-apple-darwin' || matrix.settings.target == 'x86_64-pc-windows-msvc'
+        if: matrix.settings.target == 'aarch64-apple-darwin' || matrix.settings.target == 'x86_64-pc-windows-msvc'
         run: |
           node ./node_modules/electron/install.js
           yarn test:electron
@@ -179,11 +186,55 @@ jobs:
       - name: Electron tests
         if: matrix.settings.target == 'x86_64-unknown-linux-gnu'
         run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           node ./node_modules/electron/install.js
           xvfb-run --auto-servernum yarn test:electron
 
       - name: Test build with profile
         run: yarn workspace @examples/napi build --profile napi-rs-custom
+
+  build-and-test-msys2:
+    strategy:
+      matrix:
+        sys: [MINGW64, UCRT64, CLANG64]
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.sys }}
+          update: true
+          install: >-
+            base-devel
+          pacboy: >-
+            rust:p
+            yarn:p
+            ${{ matrix.sys == 'CLANG64' && 'gcc-compat:p' || '' }}
+
+      - name: Cargo test
+        shell: msys2 {0}
+        run: |
+          cargo test
+  # Because dependencies use napi-rs itself they use older versions of napi-rs to install the package, this will fail automatically during build, uncomment when bootstrap issues have been solved
+  #    - name: Install dependencies
+  #      shell: msys2 {0}
+  #      run: |
+  #        yarn install --immutable --mode=skip-build
+  #
+  #    - name: Build tests
+  #      shell: msys2 {0}
+  #      run: yarn build:test
+  #
+  #    - name: Run tests
+  #      shell: msys2 {0}
+  #      run: |
+  #        yarn test:cli
+  #        yarn test --verbose
+  #        yarn tsc -p examples/napi/tsconfig.json --noEmit --skipLibCheck
+  #        yarn test:macro
 
   build_only:
     name: Build only test - ${{ matrix.settings.target }}
@@ -209,7 +260,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'yarn'
 
       - name: Install
@@ -238,6 +289,59 @@ jobs:
         run: yarn build:test -- --target ${{ matrix.settings.target }} --release
         shell: bash
 
+  build_for_test_in_docker:
+    name: build - ${{ matrix.settings.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: powerpc64le-unknown-linux-gnu
+          - target: s390x-unknown-linux-gnu
+          - target: x86_64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-gnu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ~/.napi-rs
+          key: stable-ubuntu-latest-${{ matrix.settings.target }}-cargo-cache
+
+      - name: Install dependencies
+        run: yarn install --immutable --mode=skip-build
+
+      - name: Cross build native tests
+        run: yarn build:test -- --target ${{ matrix.settings.target }} --release --use-napi-cross
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.settings.target }}-example
+          path: examples/napi/*.node
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.settings.target }}-example-compat
+          path: examples/napi-compat-mode/index.node
+
   build_in_docker:
     name: build - ${{ matrix.settings.target }}
     runs-on: ubuntu-latest
@@ -251,12 +355,6 @@ jobs:
             arch: 'x64'
           - image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             target: aarch64-unknown-linux-musl
-          - image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-            target: aarch64-unknown-linux-gnu
-            arch: 'arm64'
-            libc: 'gnu'
-          - image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
-            target: x86_64-unknown-linux-gnu
 
     steps:
       - uses: actions/checkout@v4
@@ -264,7 +362,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'yarn'
 
       - name: Install dependencies
@@ -295,7 +393,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.settings.target }}-example
-          path: examples/napi/index.node
+          path: examples/napi/*.node
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.settings.target }}-example-compat
@@ -303,12 +401,16 @@ jobs:
 
   test_in_docker:
     name: Test - ${{ matrix.settings.target }} - ${{ matrix.node }}
-    runs-on: ubuntu-latest
-    needs: build_in_docker
+    # Node.js on qemu segfaults on s390x and arm64v8 when using 24.04
+    # See also https://github.com/actions/runner-images/issues/11471
+    runs-on: ubuntu-22.04
+    needs:
+      - build_in_docker
+      - build_for_test_in_docker
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20]
+        node: [18, 20, 22]
         settings:
           - image: 'node:{:version}-slim'
             target: x86_64-unknown-linux-gnu
@@ -320,6 +422,16 @@ jobs:
             args: '--platform linux/arm64'
             arch: 'arm64'
             libc: 'gnu'
+          - image: 'node:{:version}-slim'
+            target: powerpc64le-unknown-linux-gnu
+            args: '--platform linux/ppc64le'
+            arch: 'ppc64'
+            libc: 'gnu'
+          - image: 'node:{:version}-slim'
+            target: s390x-unknown-linux-gnu
+            args: '--platform linux/s390x'
+            arch: 's390x'
+            libc: 'gnu'
           - image: 'node:{:version}-alpine'
             target: x86_64-unknown-linux-musl
             args: ''
@@ -330,18 +442,22 @@ jobs:
             args: '--platform linux/arm64'
             arch: 'arm64'
             libc: 'musl'
+        exclude:
+          - settings:
+              target: aarch64-unknown-linux-gnu
+            node: 18
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'yarn'
       - uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.settings.target }}-example
-          path: examples/napi/index.node
+          path: examples/napi/
       - uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.settings.target }}-example-compat
@@ -355,28 +471,17 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+          image: tonistiigi/binfmt:qemu-v8.1.5
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Setup image name
         id: image-name
         run: |
           node -e "console.info('docker-image=${{ matrix.settings.image }}'.replace('{:version}', ${{ matrix.node }}))" >> "$GITHUB_OUTPUT"
-      - name: Setup and run tests
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ steps.image-name.outputs.docker-image }}
-          options: ${{ matrix.settings.args }} -v ${{ github.workspace }}/cores:/cores -v ${{ github.workspace }}:/build -w /build
-          run: >-
-            ulimit -c &&
-            ulimit -c unlimited &&
-            ulimit -c &&
-            yarn test
-      - name: List files
-        run: |
-          ls -la .
-          ls -la ./cores
+      - name: Run test
+        run: docker run --rm ${{ matrix.settings.args }} -v ${{ github.workspace }}:/build -w /build ${{ steps.image-name.outputs.docker-image }} sh -c "NODE_OPTIONS=--max-old-space-size=6000 DISABLE_V8_COMPILE_CACHE=1 yarn workspace @examples/napi test -s"
 
   build-and-test-linux-armv7:
-    name: stable - armv7-unknown-linux-gnu - node@18
+    name: stable - armv7-unknown-linux-gnueabihf - node@20
     runs-on: ubuntu-latest
 
     steps:
@@ -385,7 +490,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'yarn'
 
       - name: Install
@@ -401,7 +506,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: stable-linux-armv7-gnu-node@18-cargo-cache
+          key: stable-linux-armv7-gnueabihf-node@22-cargo-cache
 
       - name: Install dependencies
         run: |
@@ -429,7 +534,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'yarn'
 
       - name: Install
@@ -476,10 +581,54 @@ jobs:
           toolchain: stable
 
       - name: Check build
-        run: cargo check -p ${{ matrix.settings.package }} -F ${{ matrix.settings.features }}
+        run: cargo check -p ${{ matrix.settings.package }} -F ${{ matrix.settings.features }}\
+
+  test-freebsd:
+    runs-on: ubuntu-latest
+    name: Test freebsd target
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        id: build
+        uses: cross-platform-actions/action@v0.27.0
+        env:
+          DEBUG: 'napi:*'
+          RUSTUP_HOME: /home/runner/rustup
+          CARGO_HOME: /home/runner/cargo
+          RUSTUP_IO_THREADS: 1
+        with:
+          operating_system: freebsd
+          version: '14.2'
+          memory: 8G
+          cpu_count: 3
+          environment_variables: 'DEBUG RUSTUP_IO_THREADS'
+          shell: bash
+          run: |
+            env | sort
+            sudo pkg install -y -f curl node libnghttp2 npm
+            sudo npm install -g corepack
+            corepack enable
+            curl https://sh.rustup.rs -sSf --output rustup.sh
+            sh rustup.sh -y --default-toolchain stable
+            source "$HOME/.cargo/env"
+            echo "~~~~ rustc --version ~~~~"
+            rustc --version
+            echo "~~~~ node -v ~~~~"
+            node -v
+            echo "~~~~ yarn --version ~~~~"
+            yarn --version
+            pwd
+            ls -lah
+            whoami
+            env
+            freebsd-version
+            yarn config set supportedArchitectures.cpu --json '["current", "wasm32"]'
+            yarn install --immutable --mode=skip-build
+            yarn workspace @examples/napi build
+            yarn workspace @examples/napi test -s
 
   test-node-wasi:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     name: Test node wasi target
     timeout-minutes: 10
     steps:
@@ -493,7 +642,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: wasm32-wasi-preview1-threads
+          targets: wasm32-wasip1-threads
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -501,20 +650,23 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: stable-wasm32-wasi-preview1-threads-node@20-cargo-cache
+          key: stable-wasm32-wasip1-threads-node@20-cargo-cache
       - name: Install dependencies
         run: yarn install --immutable --mode=skip-build
       - name: Build
         run: |
           yarn build
-          yarn workspace @examples/napi build --target wasm32-wasi-preview1-threads --release
+          yarn workspace @examples/napi build --target wasm32-wasip1-threads --profile wasi
       - name: Test
         run: yarn workspace @examples/napi test -s
         env:
           WASI_TEST: 'true'
           NODE_OPTIONS: '--max-old-space-size=8192'
+          SKIP_UNWIND_TEST: 1
       - name: Browser test
-        run: yarn workspace @examples/napi vitest
+        run: |
+          yarn workspace @examples/napi playwright install chromium
+          yarn workspace @examples/napi vitest
 
   test-latest-bun:
     runs-on: ubuntu-latest
@@ -522,13 +674,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'yarn'
       - name: Install
         uses: dtolnay/rust-toolchain@stable
@@ -548,7 +700,7 @@ jobs:
       - name: Build
         run: |
           bun run build
-          bun run build:test
+          yarn workspace @examples/napi build --features dyn-symbols
       - name: Test
         continue-on-error: true
         run: bun run test:bun
@@ -563,7 +715,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'yarn'
       - name: Publish
         run: |
@@ -575,3 +727,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  done:
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - build_and_test
+      - build-and-test-msys2
+      - build_only
+      - test_in_docker
+      - build-and-test-linux-armv7
+      - build_binary_crate
+      - check-all-features
+      - test-freebsd
+      - test-node-wasi
+      - test-latest-bun
+    steps:
+      - run: exit 1
+        if: ${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}

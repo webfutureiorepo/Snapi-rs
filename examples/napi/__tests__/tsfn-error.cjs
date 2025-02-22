@@ -1,5 +1,5 @@
-import('../index.js').then(
-  ({ default: { threadsafeFunctionFatalModeError } }) => {
-    return threadsafeFunctionFatalModeError(() => {})
-  },
-)
+const { threadsafeFunctionFatalModeError } = require('../index.cjs')
+
+threadsafeFunctionFatalModeError(() => {
+  return false
+})

@@ -1,5 +1,4 @@
 #![deny(clippy::all)]
-#![forbid(unsafe_op_in_unsafe_fn)]
 #![allow(non_upper_case_globals)]
 
 //! High level Node.js [N-API](https://nodejs.org/api/n-api.html) binding
@@ -8,12 +7,12 @@
 //!
 //! ## Feature flags
 //!
-//! ### napi1 ~ napi8
+//! ### napi1 ~ napi9
 //!
 //! Because `Node.js` N-API has versions. So there are feature flags to choose what version of `N-API` you want to build for.
 //! For example, if you want build a library which can be used by `node@10.17.0`, you should choose the `napi5` or lower.
 //!
-//! The details of N-API versions and support matrix: [n_api_version_matrix](https://nodejs.org/api/n-api.html#n_api_n_api_version_matrix)
+//! The details of N-API versions and support matrix: [Node-API version matrix](https://nodejs.org/api/n-api.html#node-api-version-matrix)
 //!
 //! ### tokio_rt
 //! With `tokio_rt` feature, `napi-rs` provides a ***tokio runtime*** in an additional thread.
@@ -32,14 +31,6 @@
 //!         |&mut env, data| env.create_buffer_with_data(data),
 //!     )
 //! }
-//! ```
-//!
-//! ***Tokio channel in `napi-rs` buffer size is default `100`.***
-//!
-//! ***You can adjust it via `NAPI_RS_TOKIO_CHANNEL_BUFFER_SIZE` environment variable***
-//!
-//! ```
-//! NAPI_RS_TOKIO_CHANNEL_BUFFER_SIZE=1000 node ./app.js
 //! ```
 //!
 //! ### latin1
@@ -73,6 +64,16 @@
 //! }
 //! ```
 //!
+
+#[cfg(target_family = "wasm")]
+#[link(wasm_import_module = "napi")]
+extern "C" {
+  fn napi_add_env_cleanup_hook(
+    env: sys::napi_env,
+    fun: Option<unsafe extern "C" fn(arg: *mut core::ffi::c_void)>,
+    arg: *mut core::ffi::c_void,
+  ) -> sys::napi_status;
+}
 
 #[cfg(feature = "napi8")]
 mod async_cleanup_hook;
@@ -148,8 +149,6 @@ macro_rules! assert_type_of {
   };
 }
 
-pub use crate::bindgen_runtime::ctor as module_init;
-
 pub mod bindgen_prelude {
   #[cfg(all(feature = "compat-mode", not(feature = "noop")))]
   pub use crate::bindgen_runtime::register_module_exports;
@@ -212,8 +211,15 @@ pub mod __private {
   }
 }
 
+pub extern crate ctor;
+
 #[cfg(feature = "tokio_rt")]
 pub extern crate tokio;
 
 #[cfg(feature = "error_anyhow")]
 pub extern crate anyhow;
+
+#[cfg(feature = "web_stream")]
+pub extern crate futures_core;
+#[cfg(feature = "web_stream")]
+pub extern crate tokio_stream;

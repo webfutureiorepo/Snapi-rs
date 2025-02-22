@@ -48,13 +48,11 @@ const createWindowAndReload = async () => {
 
 async function main() {
   const {
-    default: {
-      readFileAsync,
-      callThreadsafeFunction,
-      withAbortController,
-      createExternalTypedArray,
-    },
-  } = await import('./index.js')
+    readFileAsync,
+    callThreadsafeFunction,
+    withAbortController,
+    createExternalTypedArray,
+  } = require('./index.cjs')
 
   const ctrl = new AbortController()
   const promise = withAbortController(1, 2, ctrl.signal)
@@ -87,7 +85,7 @@ async function main() {
 
   assert(
     value ===
-      Array.from({ length: 100 }, (_, i) => i + 1).reduce((a, b) => a + b),
+      Array.from({ length: 100 }, (_, i) => i).reduce((a, b) => a + b),
   )
   console.info(createExternalTypedArray())
 }

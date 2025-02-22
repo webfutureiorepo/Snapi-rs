@@ -1,4 +1,3 @@
-use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::c_void;
 use std::ptr;
@@ -18,12 +17,13 @@ use crate::{NapiRaw, NapiValue};
 /// See this issue for more details:
 /// https://github.com/nodejs/node-addon-api/issues/595
 #[repr(transparent)]
+#[derive(Clone)]
 struct DeferredTrace(sys::napi_ref);
 
 #[cfg(feature = "deferred_trace")]
 impl DeferredTrace {
   fn new(raw_env: sys::napi_env) -> Result<Self> {
-    let env = unsafe { Env::from_raw(raw_env) };
+    let env = Env::from_raw(raw_env);
     let reason = env.create_string("none").unwrap();
 
     let mut js_error = ptr::null_mut();
@@ -42,7 +42,7 @@ impl DeferredTrace {
   }
 
   fn into_rejected(self, raw_env: sys::napi_env, err: Error) -> Result<sys::napi_value> {
-    let env = unsafe { Env::from_raw(raw_env) };
+    let env = Env::from_raw(raw_env);
     let mut raw = ptr::null_mut();
     check_status!(
       unsafe { sys::napi_get_reference_value(raw_env, self.0, &mut raw) },
@@ -94,11 +94,27 @@ struct DeferredData<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> {
 }
 
 pub struct JsDeferred<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> {
-  tsfn: sys::napi_threadsafe_function,
+  pub(crate) tsfn: sys::napi_threadsafe_function,
   #[cfg(feature = "deferred_trace")]
   trace: DeferredTrace,
   _data: PhantomData<Data>,
   _resolver: PhantomData<Resolver>,
+}
+
+// A trick to send the resolver into the `panic` handler
+// Do not use clone in the other place besides the `fn execute_tokio_future`
+impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> Clone
+  for JsDeferred<Data, Resolver>
+{
+  fn clone(&self) -> Self {
+    Self {
+      tsfn: self.tsfn,
+      #[cfg(feature = "deferred_trace")]
+      trace: self.trace.clone(),
+      _data: PhantomData,
+      _resolver: PhantomData,
+    }
+  }
 }
 
 unsafe impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> Send
@@ -108,39 +124,7 @@ unsafe impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> Send
 
 impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> JsDeferred<Data, Resolver> {
   pub(crate) fn new(env: sys::napi_env) -> Result<(Self, JsObject)> {
-    let mut raw_promise = ptr::null_mut();
-    let mut raw_deferred = ptr::null_mut();
-    check_status! {
-      unsafe { sys::napi_create_promise(env, &mut raw_deferred, &mut raw_promise) }
-    }?;
-
-    // Create a threadsafe function so we can call back into the JS thread when we are done.
-    let mut async_resource_name = ptr::null_mut();
-    let s = unsafe { CStr::from_bytes_with_nul_unchecked(b"napi_resolve_deferred\0") };
-    check_status!(
-      unsafe { sys::napi_create_string_utf8(env, s.as_ptr(), 22, &mut async_resource_name) },
-      "Create async resource name in JsDeferred failed"
-    )?;
-
-    let mut tsfn = ptr::null_mut();
-    check_status!(
-      unsafe {
-        sys::napi_create_threadsafe_function(
-          env,
-          ptr::null_mut(),
-          ptr::null_mut(),
-          async_resource_name,
-          0,
-          1,
-          ptr::null_mut(),
-          None,
-          raw_deferred.cast(),
-          Some(napi_resolve_deferred::<Data, Resolver>),
-          &mut tsfn,
-        )
-      },
-      "Create threadsafe function in JsDeferred failed"
-    )?;
+    let (tsfn, promise) = js_deferred_new_raw(env, Some(napi_resolve_deferred::<Data, Resolver>))?;
 
     let deferred = Self {
       tsfn,
@@ -149,12 +133,6 @@ impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> JsDeferred<Data, 
       _data: PhantomData,
       _resolver: PhantomData,
     };
-
-    let promise = JsObject(Value {
-      env,
-      value: raw_promise,
-      value_type: crate::ValueType::Object,
-    });
 
     Ok((deferred, promise))
   }
@@ -200,6 +178,59 @@ impl<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>> JsDeferred<Data, 
   }
 }
 
+fn js_deferred_new_raw(
+  env: sys::napi_env,
+  resolve_deferred: sys::napi_threadsafe_function_call_js,
+) -> Result<(sys::napi_threadsafe_function, JsObject)> {
+  let mut raw_promise = ptr::null_mut();
+  let mut raw_deferred = ptr::null_mut();
+  check_status! {
+    unsafe { sys::napi_create_promise(env, &mut raw_deferred, &mut raw_promise) }
+  }?;
+
+  // Create a threadsafe function so we can call back into the JS thread when we are done.
+  let mut async_resource_name = ptr::null_mut();
+  check_status!(
+    unsafe {
+      sys::napi_create_string_utf8(
+        env,
+        c"napi_resolve_deferred".as_ptr().cast(),
+        22,
+        &mut async_resource_name,
+      )
+    },
+    "Create async resource name in JsDeferred failed"
+  )?;
+
+  let mut tsfn = ptr::null_mut();
+  check_status!(
+    unsafe {
+      sys::napi_create_threadsafe_function(
+        env,
+        ptr::null_mut(),
+        ptr::null_mut(),
+        async_resource_name,
+        0,
+        1,
+        ptr::null_mut(),
+        None,
+        raw_deferred.cast(),
+        resolve_deferred,
+        &mut tsfn,
+      )
+    },
+    "Create threadsafe function in JsDeferred failed"
+  )?;
+
+  let promise = JsObject(Value {
+    env,
+    value: raw_promise,
+    value_type: crate::ValueType::Object,
+  });
+
+  Ok((tsfn, promise))
+}
+
 extern "C" fn napi_resolve_deferred<Data: ToNapiValue, Resolver: FnOnce(Env) -> Result<Data>>(
   env: sys::napi_env,
   _js_callback: sys::napi_value,
@@ -210,7 +241,7 @@ extern "C" fn napi_resolve_deferred<Data: ToNapiValue, Resolver: FnOnce(Env) -> 
   let deferred_data: Box<DeferredData<Data, Resolver>> = unsafe { Box::from_raw(data.cast()) };
   let result = deferred_data
     .resolver
-    .and_then(|resolver| resolver(unsafe { Env::from_raw(env) }))
+    .and_then(|resolver| resolver(Env::from_raw(env)))
     .and_then(|res| unsafe { ToNapiValue::to_napi_value(env, res) });
 
   if let Err(e) = result.and_then(|res| {
@@ -234,12 +265,7 @@ extern "C" fn napi_resolve_deferred<Data: ToNapiValue, Resolver: FnOnce(Env) -> 
           let mut err = ptr::null_mut();
           let mut err_msg = ptr::null_mut();
           unsafe {
-            sys::napi_create_string_utf8(
-              env,
-              "Rejection failed\0".as_ptr().cast(),
-              0,
-              &mut err_msg,
-            );
+            sys::napi_create_string_utf8(env, c"Rejection failed".as_ptr().cast(), 0, &mut err_msg);
             sys::napi_create_error(env, ptr::null_mut(), err_msg, &mut err);
             sys::napi_reject_deferred(env, deferred, err);
           }

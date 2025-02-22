@@ -182,7 +182,7 @@ const BUILD_OPTIONS: CommandSchema = {
       name: 'jsBinding',
       type: 'string',
       description:
-        'Path and filename of generated JS binding file. Only works with `--platform` flag. Relative to `--output_dir`.',
+        'Path and filename of generated JS binding file. Only works with `--platform` flag. Relative to `--output-dir`.',
       long: 'js',
     },
     {
@@ -196,7 +196,7 @@ const BUILD_OPTIONS: CommandSchema = {
       name: 'dts',
       type: 'string',
       description:
-        'Path and filename of generated type def file. Relative to `--output_dir`',
+        'Path and filename of generated type def file. Relative to `--output-dir`',
     },
     {
       name: 'dtsHeader',
@@ -209,6 +209,18 @@ const BUILD_OPTIONS: CommandSchema = {
       type: 'boolean',
       description:
         'Whether to disable the default file header for generated type def file. Only works when `typedef` feature enabled.',
+    },
+    {
+      name: 'dtsCache',
+      type: 'boolean',
+      description: 'Whether to enable the dts cache, default to true',
+      default: true,
+    },
+    {
+      name: 'esm',
+      type: 'boolean',
+      description:
+        'Whether to emit an ESM JS binding file instead of CJS format. Only works with `--platform` flag.',
     },
     {
       name: 'strip',
