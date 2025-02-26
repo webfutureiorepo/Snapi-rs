@@ -1,7 +1,6 @@
 #[cfg(not(target_family = "wasm"))]
 use futures::prelude::*;
 use napi::bindgen_prelude::*;
-use napi::tokio;
 #[cfg(not(target_family = "wasm"))]
 use napi::tokio::fs;
 
@@ -31,4 +30,16 @@ async fn async_multi_two(arg: u32) -> Result<u32> {
   tokio::task::spawn(async move { Ok(arg * 2) })
     .await
     .unwrap()
+}
+
+#[napi]
+async fn panic_in_async() {
+  panic!("panic in async function");
+}
+
+#[napi(async_runtime)]
+pub fn within_async_runtime_if_available() {
+  tokio::spawn(async {
+    println!("within_runtime_if_available");
+  });
 }

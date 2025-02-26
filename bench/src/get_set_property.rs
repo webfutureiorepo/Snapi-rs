@@ -40,7 +40,7 @@ impl FromStr for LineJoin {
 }
 
 pub fn register_js(exports: &mut JsObject, env: &Env) -> Result<()> {
-  let test_class = env.define_class(
+  let test_class = env.define_class::<bindgen_prelude::Unknown>(
     "TestClass",
     test_class_constructor,
     &[
@@ -69,7 +69,7 @@ fn test_class_constructor(ctx: CallContext) -> Result<JsUndefined> {
     line_join: LineJoin::Miter,
   };
   let mut this = ctx.this_unchecked::<JsObject>();
-  ctx.env.wrap(&mut this, native)?;
+  ctx.env.wrap(&mut this, native, None)?;
   ctx.env.get_undefined()
 }
 

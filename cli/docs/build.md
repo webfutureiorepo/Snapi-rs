@@ -35,11 +35,13 @@ new NapiCli().build({
 | platform          | --platform            | boolean  | false    |         | Add platform triple to the generated nodejs binding file, eg: `[name].linux-x64-gnu.node`                                 |
 | jsPackageName     | --js-package-name     | string   | false    |         | Package name in generated js binding file. Only works with `--platform` flag                                              |
 | constEnum         | --const-enum          | boolean  | false    |         | Whether generate const enum for typescript bindings                                                                       |
-| jsBinding         | --js                  | string   | false    |         | Path and filename of generated JS binding file. Only works with `--platform` flag. Relative to `--output_dir`.            |
+| jsBinding         | --js                  | string   | false    |         | Path and filename of generated JS binding file. Only works with `--platform` flag. Relative to `--output-dir`.            |
 | noJsBinding       | --no-js               | boolean  | false    |         | Whether to disable the generation JS binding file. Only works with `--platform` flag.                                     |
-| dts               | --dts                 | string   | false    |         | Path and filename of generated type def file. Relative to `--output_dir`                                                  |
+| dts               | --dts                 | string   | false    |         | Path and filename of generated type def file. Relative to `--output-dir`                                                  |
 | dtsHeader         | --dts-header          | string   | false    |         | Custom file header for generated type def file. Only works when `typedef` feature enabled.                                |
 | noDtsHeader       | --no-dts-header       | boolean  | false    |         | Whether to disable the default file header for generated type def file. Only works when `typedef` feature enabled.        |
+| dtsCache          | --dts-cache           | boolean  | false    | true    | Whether to enable the dts cache, default to true                                                                          |
+| esm               | --esm                 | boolean  | false    |         | Whether to emit an ESM JS binding file instead of CJS format. Only works with `--platform` flag.                          |
 | strip             | --strip,-s            | boolean  | false    |         | Whether strip the library to achieve the minimum file size                                                                |
 | release           | --release,-r          | boolean  | false    |         | Build in release mode                                                                                                     |
 | verbose           | --verbose,-v          | boolean  | false    |         | Verbosely log build command trace                                                                                         |

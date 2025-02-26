@@ -19,6 +19,21 @@ fn validate_typed_array(input: Uint8Array) -> u32 {
 }
 
 #[napi(strict)]
+fn validate_typed_array_slice(input: &[u8]) -> u32 {
+  input.len() as u32
+}
+
+#[napi(strict)]
+fn validate_uint8_clamped_slice(input: Uint8ClampedSlice) -> u32 {
+  input.len() as u32
+}
+
+#[napi(strict)]
+fn validate_buffer_slice(input: BufferSlice) -> u32 {
+  input.len() as u32
+}
+
+#[napi(strict)]
 fn validate_bigint(input: BigInt) -> i128 {
   input.get_i128().0
 }
@@ -39,18 +54,13 @@ fn validate_date_time(_d: DateTime<Utc>) -> i64 {
 }
 
 #[napi(strict)]
-fn validate_external(e: External<u32>) -> u32 {
-  *e
+fn validate_external(e: &External<u32>) -> u32 {
+  **e
 }
 
 #[napi(strict, ts_args_type = "cb: () => number")]
-fn validate_function(cb: JsFunction) -> Result<u32> {
-  Ok(
-    cb.call::<JsUnknown>(None, &[])?
-      .coerce_to_number()?
-      .get_uint32()?
-      + 3,
-  )
+fn validate_function(cb: Function<(), JsUnknown>) -> Result<u32> {
+  Ok(cb.call(())?.coerce_to_number()?.get_uint32()? + 3)
 }
 
 #[napi(strict)]
@@ -91,6 +101,35 @@ fn validate_symbol(_s: JsSymbol) -> bool {
 #[napi(strict)]
 fn validate_optional(input1: Option<String>, input2: Option<bool>) -> bool {
   input1.is_some() || input2.unwrap_or(false)
+}
+
+/// default enum values are continuos i32s start from 0
+#[napi]
+pub enum KindInValidate {
+  /// Barks
+  Dog,
+  /// Kills birds
+  Cat,
+  /// Tasty
+  Duck,
+}
+
+#[napi(strict)]
+pub fn validate_enum(input: KindInValidate) -> i32 {
+  input as i32
+}
+
+#[napi(string_enum)]
+#[derive(Debug)]
+pub enum StatusInValidate {
+  Poll,
+  Ready,
+  Done,
+}
+
+#[napi(strict)]
+pub fn validate_string_enum(input: StatusInValidate) -> String {
+  format!("{:?}", input)
 }
 
 #[napi(return_if_invalid)]

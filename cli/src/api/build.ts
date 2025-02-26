@@ -1,11 +1,12 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir, homedir } from 'node:os'
 import { parse, join, resolve } from 'node:path'
 
 import * as colors from 'colorette'
+import { include as setjmpInclude, lib as setjmpLib } from 'wasm-sjlj'
 
 import { BuildOptions as RawBuildOptions } from '../def/build.js'
 import {
@@ -31,13 +32,13 @@ import {
   writeFileAsync,
 } from '../utils/index.js'
 
-import { createCjsBinding } from './templates/index.js'
+import { createCjsBinding, createEsmBinding } from './templates/index.js'
 import {
   createWasiBinding,
   createWasiBrowserBinding,
 } from './templates/load-wasi-template.js'
 import {
-  WASI_WORKER_BROWSER_TEMPLATE,
+  createWasiBrowserWorkerBinding,
   WASI_WORKER_TEMPLATE,
 } from './templates/wasi-worker-template.js'
 
@@ -56,6 +57,11 @@ type BuildOptions = RawBuildOptions & {
 
 export async function buildProject(options: BuildOptions) {
   debug('napi build command receive options: %O', options)
+
+  options = {
+    dtsCache: true,
+    ...options,
+  }
 
   const cwd = options.cwd ?? process.cwd()
 
@@ -178,6 +184,10 @@ class Builder {
     try {
       const { version, download } = require('@napi-rs/cross-toolchain')
 
+      const alias: Record<string, string> = {
+        's390x-unknown-linux-gnu': 's390x-ibm-linux-gnu',
+      }
+
       const toolchainPath = join(
         homedir(),
         '.napi-rs',
@@ -193,16 +203,17 @@ class Builder {
         tarArchive.unpack(toolchainPath)
       }
       const upperCaseTarget = targetToEnvVar(this.target.triple)
+      const crossTargetName = alias[this.target.triple] ?? this.target.triple
       const linkerEnv = `CARGO_TARGET_${upperCaseTarget}_LINKER`
       this.envs[linkerEnv] = join(
         toolchainPath,
         'bin',
-        `${this.target.triple}-gcc`,
+        `${crossTargetName}-gcc`,
       )
       if (!process.env.TARGET_SYSROOT) {
         this.envs[`TARGET_SYSROOT`] = join(
           toolchainPath,
-          this.target.triple,
+          crossTargetName,
           'sysroot',
         )
       }
@@ -210,42 +221,50 @@ class Builder {
         this.envs[`TARGET_AR`] = join(
           toolchainPath,
           'bin',
-          `${this.target.triple}-ar`,
+          `${crossTargetName}-ar`,
         )
       }
       if (!process.env.TARGET_RANLIB) {
         this.envs[`TARGET_RANLIB`] = join(
           toolchainPath,
           'bin',
-          `${this.target.triple}-ranlib`,
+          `${crossTargetName}-ranlib`,
         )
       }
       if (!process.env.TARGET_READELF) {
         this.envs[`TARGET_READELF`] = join(
           toolchainPath,
           'bin',
-          `${this.target.triple}-readelf`,
+          `${crossTargetName}-readelf`,
         )
       }
       if (!process.env.TARGET_C_INCLUDE_PATH) {
         this.envs[`TARGET_C_INCLUDE_PATH`] = join(
           toolchainPath,
-          this.target.triple,
+          crossTargetName,
           'sysroot',
           'usr',
           'include/',
         )
       }
       if (!process.env.CC && !process.env.TARGET_CC) {
-        this.envs[`CC`] = join(
-          toolchainPath,
-          'bin',
-          `${this.target.triple}-gcc`,
-        )
+        this.envs[`CC`] = join(toolchainPath, 'bin', `${crossTargetName}-gcc`)
         this.envs[`TARGET_CC`] = join(
           toolchainPath,
           'bin',
-          `${this.target.triple}-gcc`,
+          `${crossTargetName}-gcc`,
+        )
+      }
+      if (!process.env.CXX && !process.env.TARGET_CXX) {
+        this.envs[`CXX`] = join(
+          toolchainPath,
+          'bin',
+          `${this.target.triple}-g++`,
+        )
+        this.envs[`TARGET_CXX`] = join(
+          toolchainPath,
+          'bin',
+          `${this.target.triple}-g++`,
         )
       }
       if (
@@ -253,8 +272,18 @@ class Builder {
           (process.env.TARGET_CC === 'clang' || !process.env.TARGET_CC)) ||
         process.env.TARGET_CC === 'clang'
       ) {
-        this.envs.CFLAGS = `--sysroot=${this.envs.TARGET_SYSROOT}`
+        this.envs.CFLAGS = `--sysroot=${this.envs.TARGET_SYSROOT} --gcc-toolchain=${toolchainPath}`
       }
+      if (
+        (process.env.CXX === 'clang++' &&
+          (process.env.TARGET_CXX === 'clang++' || !process.env.TARGET_CXX)) ||
+        process.env.TARGET_CXX === 'clang++'
+      ) {
+        this.envs.CXXFLAGS = `--sysroot=${this.envs.TARGET_SYSROOT} --gcc-toolchain=${toolchainPath}`
+      }
+      this.envs.PATH = this.envs.PATH
+        ? `${toolchainPath}/bin:${this.envs.PATH}:${process.env.PATH}`
+        : `${toolchainPath}/bin:${process.env.PATH}`
     } catch (e) {
       debug.warn('Pick cross toolchain failed', e as Error)
       // ignore, do nothing
@@ -308,7 +337,7 @@ class Builder {
       buildProcess.stderr?.on('data', (data) => {
         const output = data.toString()
         console.error(output)
-        if (/Finished\s(dev|release)/.test(output)) {
+        if (/Finished\s(`dev`|`release`)/.test(output)) {
           this.postBuild().catch(() => {})
         }
       })
@@ -471,7 +500,7 @@ class Builder {
     const linkerEnv = `CARGO_TARGET_${targetToEnvVar(
       this.target.triple,
     )}_LINKER`
-    if (linker && !process.env[linkerEnv]) {
+    if (linker && !process.env[linkerEnv] && !this.envs[linkerEnv]) {
       this.envs[linkerEnv] = linker
     }
 
@@ -497,10 +526,10 @@ class Builder {
       Object.assign(this.envs, {
         CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-android24-clang`,
         CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-androideabi24-clang`,
-        CC: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-${targetPlatform}-clang`,
-        CXX: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-${targetPlatform}-clang++`,
-        AR: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/llvm-ar`,
-        RANLIB: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/llvm-ranlib`,
+        TARGET_CC: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-${targetPlatform}-clang`,
+        TARGET_CXX: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/${targetArch}-linux-${targetPlatform}-clang++`,
+        TARGET_AR: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/llvm-ar`,
+        TARGET_RANLIB: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin/llvm-ranlib`,
         ANDROID_NDK: ANDROID_NDK_LATEST_HOME,
         PATH: `${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/${hostPlatform}-x86_64/bin:${process.env.PATH}`,
       })
@@ -515,6 +544,47 @@ class Builder {
         'wasm32-wasi-threads',
       )
       this.envs.EMNAPI_LINK_DIR = emnapi
+      this.envs.SETJMP_LINK_DIR = setjmpLib
+      const { WASI_SDK_PATH } = process.env
+
+      if (WASI_SDK_PATH && existsSync(WASI_SDK_PATH)) {
+        this.envs.CARGO_TARGET_WASM32_WASI_PREVIEW1_THREADS_LINKER = join(
+          WASI_SDK_PATH,
+          'bin',
+          'wasm-ld',
+        )
+        this.envs.CARGO_TARGET_WASM32_WASIP1_LINKER = join(
+          WASI_SDK_PATH,
+          'bin',
+          'wasm-ld',
+        )
+        this.envs.CARGO_TARGET_WASM32_WASIP1_THREADS_LINKER = join(
+          WASI_SDK_PATH,
+          'bin',
+          'wasm-ld',
+        )
+        this.envs.CARGO_TARGET_WASM32_WASIP2_LINKER = join(
+          WASI_SDK_PATH,
+          'bin',
+          'wasm-ld',
+        )
+        this.setEnvIfNotExists('CC', join(WASI_SDK_PATH, 'bin', 'clang'))
+        this.setEnvIfNotExists('CXX', join(WASI_SDK_PATH, 'bin', 'clang++'))
+        this.setEnvIfNotExists('AR', join(WASI_SDK_PATH, 'bin', 'ar'))
+        this.setEnvIfNotExists('RANLIB', join(WASI_SDK_PATH, 'bin', 'ranlib'))
+        this.setEnvIfNotExists(
+          'CFLAGS',
+          `--target=wasm32-wasi-threads --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -pthread -mllvm -wasm-enable-sjlj -I${setjmpInclude}`,
+        )
+        this.setEnvIfNotExists(
+          'CXXFLAGS',
+          `--target=wasm32-wasi-threads --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -pthread -mllvm -wasm-enable-sjlj -I${setjmpInclude}`,
+        )
+        this.setEnvIfNotExists(
+          `LDFLAGS`,
+          `-fuse-ld=${WASI_SDK_PATH}/bin/wasm-ld --target=wasm32-wasi-threads`,
+        )
+      }
     }
 
     debug('Set envs: ')
@@ -527,7 +597,7 @@ class Builder {
 
   private setFeatures() {
     const args = []
-    if (this.options.allFeatures && this.options.allFeatures) {
+    if (this.options.allFeatures && this.options.noDefaultFeatures) {
       throw new Error(
         'Cannot specify --all-features and --no-default-features together',
       )
@@ -577,14 +647,21 @@ class Builder {
   }
 
   private getIntermediateTypeFile() {
-    return join(
+    const dtsPath = join(
       tmpdir(),
       `${this.crate.name}-${createHash('sha256')
         .update(this.crate.manifest_path)
         .update(CLI_VERSION)
         .digest('hex')
-        .substring(0, 8)}.napi_type_def.tmp`,
+        .substring(0, 8)}.napi_type_def`,
     )
+    if (!this.options.dtsCache) {
+      try {
+        unlinkSync(dtsPath)
+      } catch {}
+      return `${dtsPath}_${Date.now()}.tmp`
+    }
+    return `${dtsPath}.tmp`
   }
 
   private getIntermediateWasiRegisterFile() {
@@ -610,40 +687,41 @@ class Builder {
       })
     }
 
-    const dest = await this.copyArtifact()
+    const wasmBinaryName = await this.copyArtifact()
 
     // only for cdylib
     if (this.cdyLibName) {
       const idents = await this.generateTypeDef()
       const intermediateWasiRegisterFile = this.envs.WASI_REGISTER_TMP_PATH
-      const wasiRegisterFunctions =
-        this.target.arch === 'wasm32'
-          ? await (async function readIntermediateWasiRegisterFile() {
-              const fileContent = await readFileAsync(
-                intermediateWasiRegisterFile,
-                'utf8',
-              ).catch((err) => {
-                console.warn(
-                  `Read ${colors.yellowBright(
-                    intermediateWasiRegisterFile,
-                  )} failed, reason: ${err.message}`,
-                )
-                return ``
+      const wasiRegisterFunctions = this.config.targets.some(
+        (t) => t.platform === 'wasi',
+      )
+        ? await (async function readIntermediateWasiRegisterFile() {
+            const fileContent = await readFileAsync(
+              intermediateWasiRegisterFile,
+              'utf8',
+            ).catch((err) => {
+              console.warn(
+                `Read ${colors.yellowBright(
+                  intermediateWasiRegisterFile,
+                )} failed, reason: ${err.message}`,
+              )
+              return ``
+            })
+            return fileContent
+              .split('\n')
+              .map((l) => l.trim())
+              .filter((l) => l.length)
+              .map((line) => {
+                const [_, fn] = line.split(':')
+                return fn.trim()
               })
-              return fileContent
-                .split('\n')
-                .map((l) => l.trim())
-                .filter((l) => l.length)
-                .map((line) => {
-                  const [_, fn] = line.split(':')
-                  return fn.trim()
-                })
-            })()
-          : []
+          })()
+        : []
       const jsOutput = await this.writeJsBinding(idents)
       const wasmBindingsOutput = await this.writeWasiBinding(
         wasiRegisterFunctions,
-        dest ?? 'index.wasm',
+        wasmBinaryName ?? 'index.wasm',
         idents,
       )
       if (jsOutput) {
@@ -658,7 +736,7 @@ class Builder {
   }
 
   private async copyArtifact() {
-    const [srcName, destName] = this.getArtifactNames()
+    const [srcName, destName, wasmBinaryName] = this.getArtifactNames()
     if (!srcName || !destName) {
       return
     }
@@ -668,6 +746,7 @@ class Builder {
     const src = join(this.targetDir, this.target.triple, profile, srcName)
     debug(`Copy artifact from: [${src}]`)
     const dest = join(this.outputDir, destName)
+    const isWasm = dest.endsWith('.wasm')
 
     try {
       if (await fileExists(dest)) {
@@ -676,12 +755,47 @@ class Builder {
       }
       debug('Copy artifact to:')
       debug('  %i', dest)
-      await copyFileAsync(src, dest)
+      if (isWasm) {
+        const { ModuleConfig } = await import('@napi-rs/wasm-tools')
+        debug('Generate debug wasm module')
+        try {
+          const debugWasmModule = new ModuleConfig()
+            .generateDwarf(true)
+            .generateNameSection(true)
+            .generateProducersSection(true)
+            .preserveCodeTransform(true)
+            .strictValidate(false)
+            .parse(await readFileAsync(src))
+          const debugWasmBinary = debugWasmModule.emitWasm(true)
+          await writeFileAsync(
+            dest.replace('.wasm', '.debug.wasm'),
+            debugWasmBinary,
+          )
+          debug('Generate release wasm module')
+          const releaseWasmModule = new ModuleConfig()
+            .generateDwarf(false)
+            .generateNameSection(false)
+            .generateProducersSection(false)
+            .preserveCodeTransform(false)
+            .strictValidate(false)
+            .onlyStableFeatures(false)
+            .parse(debugWasmBinary)
+          const releaseWasmBinary = releaseWasmModule.emitWasm(false)
+          await writeFileAsync(dest, releaseWasmBinary)
+        } catch (e) {
+          debug.warn(
+            `Failed to generate debug wasm module: ${(e as any).message ?? e}`,
+          )
+          await copyFileAsync(src, dest)
+        }
+      } else {
+        await copyFileAsync(src, dest)
+      }
       this.outputs.push({
-        kind: dest.endsWith('.node') ? 'node' : 'exe',
+        kind: dest.endsWith('.node') ? 'node' : isWasm ? 'wasm' : 'exe',
         path: dest,
       })
-      return dest
+      return wasmBinaryName ? join(this.outputDir, wasmBinaryName) : null
     } catch (e) {
       throw new Error('Failed to copy artifact', {
         cause: e,
@@ -692,6 +806,7 @@ class Builder {
   private getArtifactNames() {
     if (this.cdyLibName) {
       const cdyLib = this.cdyLibName.replace(/-/g, '_')
+      const wasiTarget = this.config.targets.find((t) => t.platform === 'wasi')
 
       const srcName =
         this.target.platform === 'darwin'
@@ -715,7 +830,13 @@ class Builder {
         destName += '.node'
       }
 
-      return [srcName, destName]
+      return [
+        srcName,
+        destName,
+        wasiTarget
+          ? `${this.config.binaryName}.${wasiTarget.platformArchABI}.wasm`
+          : null,
+      ]
     } else if (this.binName) {
       const srcName =
         this.target.platform === 'win32' ? `${this.binName}.exe` : this.binName
@@ -735,9 +856,22 @@ class Builder {
 
     const { dts, exports } = await processTypeDef(
       this.envs.TYPE_DEF_TMP_PATH,
-      this.options.constEnum ?? true,
+      this.options.constEnum ?? this.config.constEnum ?? true,
       !this.options.noDtsHeader
-        ? this.options.dtsHeader ?? DEFAULT_TYPE_DEF_HEADER
+        ? (this.options.dtsHeader ??
+            (this.config.dtsHeaderFile
+              ? await readFileAsync(
+                  join(this.cwd, this.config.dtsHeaderFile),
+                  'utf-8',
+                ).catch(() => {
+                  debug.warn(
+                    `Failed to read dts header file ${this.config.dtsHeaderFile}`,
+                  )
+                  return null
+                })
+              : null) ??
+            this.config.dtsHeader ??
+            DEFAULT_TYPE_DEF_HEADER)
         : '',
     )
 
@@ -769,7 +903,8 @@ class Builder {
 
     const name = this.options.jsBinding ?? 'index.js'
 
-    const cjs = createCjsBinding(
+    const createBinding = this.options.esm ? createEsmBinding : createCjsBinding
+    const binding = createBinding(
       this.config.binaryName,
       this.config.packageName,
       idents,
@@ -779,7 +914,7 @@ class Builder {
       const dest = join(this.outputDir, name)
       debug('Writing js binding to:')
       debug('  %i', dest)
-      await writeFileAsync(dest, cjs, 'utf-8')
+      await writeFileAsync(dest, binding, 'utf-8')
       return {
         kind: 'js',
         path: dest,
@@ -814,7 +949,8 @@ class Builder {
         createWasiBinding(
           name,
           this.config.packageName,
-          wasiRegisterFunctions,
+          this.config.wasm?.initialMemory,
+          this.config.wasm?.maximumMemory,
         ) +
           exportsCode +
           '\n',
@@ -822,7 +958,12 @@ class Builder {
       )
       await writeFileAsync(
         browserBindingPath,
-        createWasiBrowserBinding(name, wasiRegisterFunctions) +
+        createWasiBrowserBinding(
+          name,
+          this.config.wasm?.initialMemory,
+          this.config.wasm?.maximumMemory,
+          this.config.wasm?.browser?.fs,
+        ) +
           idents
             .map(
               (ident) =>
@@ -835,7 +976,7 @@ class Builder {
       await writeFileAsync(workerPath, WASI_WORKER_TEMPLATE, 'utf8')
       await writeFileAsync(
         browserWorkerPath,
-        WASI_WORKER_BROWSER_TEMPLATE,
+        createWasiBrowserWorkerBinding(this.config.wasm?.browser?.fs ?? false),
         'utf8',
       )
       await writeFileAsync(
@@ -866,5 +1007,11 @@ class Builder {
       ] satisfies Output[]
     }
     return []
+  }
+
+  private setEnvIfNotExists(env: string, value: string) {
+    if (!process.env[env]) {
+      this.envs[env] = value
+    }
   }
 }
